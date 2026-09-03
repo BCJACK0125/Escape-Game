@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>消失的第十三幕 · 魔術師林默的最後房間</title>
+<meta name="description" content="無後端的靜態網頁 3D 密室逃脫：24 個互動節點、三線並行、雙結局。改編自實體密室《消失的第十三幕》。">
+<meta name="theme-color" content="#0c0910">
+<meta property="og:title" content="消失的第十三幕">
+<meta property="og:description" content="找回代表光、聲、物的三枚真相徽記，重演第十三幕。">
+<link rel="stylesheet" href="./styles/base.css">
+<link rel="stylesheet" href="./styles/ui.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230c0910'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='%23c8a44d' font-family='serif'%3E13%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+  <canvas id="scene" aria-label="第一人稱 3D 場景"></canvas>
+
+  <div id="boot">
+    <p class="boot-title">消失的第十三幕</p>
+    <p>正在點亮工作室…</p>
+    <noscript><p>這個作品需要 JavaScript 與 WebGL。<br>請開啟 JavaScript 後重新載入。</p></noscript>
+  </div>
+
+  <div id="fatal" hidden></div>
+
+  <script type="module">
+    // 失敗時一定要給玩家一個明確的說法，而不是一片黑。
+    const fatal = (title, detail) => {
+      const box = document.getElementById('fatal');
+      const boot = document.getElementById('boot');
+      if (!box || !box.hidden) return;
+      if (boot) boot.hidden = true;
+      box.hidden = false;
+      box.innerHTML =
+        '<p style="font-size:1.2em;color:#f0d48a">' + title + '</p>' +
+        '<p style="max-width:34rem;line-height:1.9;color:#b9ac8e">' + detail + '</p>' +
+        '<p><a href="./diagnose.html" style="color:#f0d48a">開啟自我檢查頁</a></p>';
+    };
+
+    window.addEventListener('error', (e) => {
+      if (e.message && /three|import|module|WebGL/i.test(e.message)) {
+        fatal('載入失敗', e.message);
+      }
+    });
+
+    // 看門狗：8 秒內遊戲還沒啟動，就說明最可能的三個原因
+    setTimeout(() => {
+      if (window.__act13) return;
+      const isFile = location.protocol === 'file:';
+      fatal('遊戲沒有啟動', isFile
+        ? '你是用 file:// 直接開啟檔案，ES Module 會被瀏覽器的 CORS 政策擋掉。請在資料夾裡執行 <code>python3 -m http.server 8000</code>，改用 http://localhost:8000/ 開啟。'
+        : '可能的原因：無法連到 three.js 的 CDN（離線或網路封鎖）、瀏覽器版本過舊，或 WebGL 被關閉。');
+    }, 8000);
+  </script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自我檢查 · 消失的第十三幕</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100%; padding: 2rem 1.2rem;
+    background: #12101a; color: #ede3c8;
+    font-family: "PingFang TC", "Noto Sans TC", system-ui, sans-serif; line-height: 1.8;
+  }
+  main { max-width: 46rem; margin: 0 auto; }
+  h1 { font-family: "Songti TC", serif; font-size: 1.6rem; letter-spacing: .16em; margin: 0 0 .3rem; color: #f0d48a; }
+  p.lead { color: #b9ac8e; margin: 0 0 1.6rem; }
+  ul { list-style: none; padding: 0; margin: 0 0 1.6rem; }
+  li { display: grid; grid-template-columns: 2rem 1fr; gap: .6rem; padding: .5rem 0; border-bottom: 1px solid rgba(237,227,200,.12); }
+  .ok { color: #8ad8a0; } .bad { color: #ff8878; } .warn { color: #f0d48a; }
+  code { font-family: ui-monospace, monospace; font-size: .86em; color: #c8a44d; word-break: break-all; }
+  #box { width: 100%; aspect-ratio: 16/7; border: 1px solid rgba(200,164,77,.3); background: #000; margin: .6rem 0 1.2rem; }
+  .hint { border-left: 2px solid #7c2233; padding: .6rem 0 .6rem 1rem; background: rgba(124,34,51,.1); }
+  a { color: #f0d48a; }
+</style>
+</head>
+<body>
+<main>
+  <h1>自我檢查</h1>
+  <p class="lead">這一頁不需要遊戲的任何檔案，可以單獨判斷問題出在哪一層。</p>
+
+  <ul id="list"></ul>
+
+  <h2 style="font-size:1.05rem;letter-spacing:.14em;color:#c8a44d;margin:0 0 .2rem">亮度對照</h2>
+  <p class="lead" style="margin-bottom:.2rem">下面應該看到一顆<strong>亮金色方塊</strong>（不受燈光影響）和一顆<strong>受燈光照亮的球</strong>。</p>
+  <div id="box"></div>
+  <div id="verdict"></div>
+</main>
+
+<script type="module">
+const list = document.getElementById('list');
+const row = (state, label, detail = '') => {
+  const li = document.createElement('li');
+  const mark = document.createElement('span');
+  mark.className = state;
+  mark.textContent = state === 'ok' ? '✓' : state === 'bad' ? '✗' : '!';
+  const body = document.createElement('div');
+  body.innerHTML = label + (detail ? ` <code>${detail}</code>` : '');
+  li.append(mark, body);
+  list.appendChild(li);
+};
+
+// 1. 協定
+if (location.protocol === 'file:') {
+  row('bad', '你是用 <b>file://</b> 直接開啟檔案。ES Module 會被瀏覽器的 CORS 政策擋掉，遊戲不會啟動。', location.protocol);
+  row('warn', '解法：在資料夾裡執行 <code>python3 -m http.server 8000</code>，改用 <code>http://localhost:8000/</code>。');
+} else {
+  row('ok', '使用 HTTP(S) 協定', location.origin);
+}
+
+// 2. 瀏覽器能力
+row('ok', '支援 ES Module（這段程式跑起來了就代表支援）');
+try {
+  await (async () => {})();
+  row(typeof window.queueMicrotask === 'function' ? 'ok' : 'warn', '支援頂層 await 與現代語法');
+} catch { row('bad', '不支援現代語法，請更新瀏覽器'); }
+
+// 3. WebGL
+const probe = document.createElement('canvas');
+const gl2 = probe.getContext('webgl2');
+const gl1 = gl2 || probe.getContext('webgl');
+if (gl2) {
+  const dbg = gl2.getExtension('WEBGL_debug_renderer_info');
+  row('ok', '支援 WebGL2', dbg ? gl2.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl2.getParameter(gl2.VERSION));
+} else if (gl1) {
+  row('warn', '只有 WebGL1。畫面可能異常，建議更新瀏覽器或開啟硬體加速。');
+} else {
+  row('bad', '這台裝置／瀏覽器<b>無法建立 WebGL 環境</b>。請確認瀏覽器設定裡的「使用硬體加速」是開啟的。');
+}
+
+// 4. three.js 的三個 CDN
+const SOURCES = [
+  'https://unpkg.com/three@0.160.0/build/three.module.js',
+  'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
+  'https://esm.sh/three@0.160.0'
+];
+let THREE = null;
+for (const url of SOURCES) {
+  try {
+    const mod = await import(url);
+    if (mod?.Scene) {
+      THREE = mod;
+      row('ok', `three.js 載入成功（r${mod.REVISION}）`, url);
+      break;
+    }
+  } catch (err) {
+    row('warn', 'CDN 無法載入', url);
+  }
+}
+if (!THREE) {
+  row('bad', '<b>三個 CDN 都連不上。</b>可能是離線、公司或校園網路封鎖。解法：把 <code>three.module.js</code> 下載到 <code>vendor/</code>，並把 <code>js/core/three.js</code> 的 <code>USE_LOCAL_FIRST</code> 改成 <code>true</code>。');
+}
+
+// 5. localStorage（存檔用）
+try {
+  localStorage.setItem('act13:probe', '1');
+  localStorage.removeItem('act13:probe');
+  row('ok', 'localStorage 可寫入，存檔功能正常');
+} catch {
+  row('warn', 'localStorage 不可用（可能是無痕模式）。遊戲仍可玩，但不會存檔。');
+}
+
+// 6. 音訊
+row(window.AudioContext || window.webkitAudioContext ? 'ok' : 'warn',
+    (window.AudioContext || window.webkitAudioContext) ? '支援 Web Audio（所有音效都是即時合成的）' : '不支援 Web Audio，遊戲會無聲但可玩');
+
+// 7. 觸控
+row('ok', matchMedia('(hover: none) and (pointer: coarse)').matches
+  ? '偵測為觸控裝置，遊戲會自動顯示螢幕搖桿'
+  : '偵測為滑鼠鍵盤裝置（可在選單把「螢幕搖桿」改成「一直顯示」）');
+
+// 8. 實際畫一個受光場景
+const verdict = document.getElementById('verdict');
+if (THREE) {
+  const box = document.getElementById('box');
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(box.clientWidth, box.clientHeight);
+  if ('outputColorSpace' in renderer && THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  box.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d0a13);
+  const camera = new THREE.PerspectiveCamera(50, box.clientWidth / box.clientHeight, 0.1, 50);
+  camera.position.set(0, 0.6, 4);
+  camera.lookAt(0, 0, 0);
+
+  // 不受光的亮金方塊：看得到它就代表 WebGL 正常運作
+  const unlit = new THREE.Mesh(
+    new THREE.BoxGeometry(1.1, 1.1, 1.1),
+    new THREE.MeshBasicMaterial({ color: 0xf0d48a })
+  );
+  unlit.position.x = -1.3;
+  scene.add(unlit);
+
+  // 受光的球：看不到它就是燈光／曝光問題，不是 WebGL 問題
+  const lit = new THREE.Mesh(
+    new THREE.SphereGeometry(0.66, 32, 24),
+    new THREE.MeshStandardMaterial({ color: 0xcfc6bd, roughness: 0.7 })
+  );
+  lit.position.x = 1.3;
+  scene.add(lit);
+  scene.add(new THREE.AmbientLight(0x50476a, 1.9));
+  const key = new THREE.PointLight(0xffcf94, 46, 15, 2);
+  key.position.set(2.2, 2.0, 2.4);
+  scene.add(key);
+
+  (function loop() {
+    requestAnimationFrame(loop);
+    unlit.rotation.y += 0.01;
+    unlit.rotation.x += 0.004;
+    lit.rotation.y += 0.008;
+    renderer.render(scene, camera);
+  })();
+
+  verdict.innerHTML = `
+    <div class="hint">
+      <p><b>兩顆都看得到</b> → WebGL 與燈光都正常。若遊戲畫面偏暗，請在標題畫面把「畫面亮度」往右拉。</p>
+      <p><b>只看得到金色方塊</b> → 燈光或曝光問題，請調高「畫面亮度」，並把這件事回報給我。</p>
+      <p><b>兩顆都看不到（純黑）</b> → WebGL 繪製失敗，請開啟瀏覽器的硬體加速，或換一個瀏覽器試試。</p>
+      <p style="margin-bottom:0">還可以用 <a href="./index.html?debug=1">index.html?debug=1</a> 開啟遊戲，畫面下方會顯示 FPS、曝光值與光源數量。</p>
+    </div>`;
+} else {
+  verdict.innerHTML = '<div class="hint"><p style="margin:0">three.js 沒載入成功，所以無法畫對照圖。請先解決上面標記 ✗ 的項目。</p></div>';
+}
+</script>
+</body>
+</html>
