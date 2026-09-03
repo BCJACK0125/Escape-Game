@@ -6,7 +6,7 @@
 // 然後把下面的 USE_LOCAL_FIRST 改成 true。
 
 const VERSION = '0.160.0';
-const USE_LOCAL_FIRST = false;
+const USE_LOCAL_FIRST = true;
 
 const SOURCES = [
   USE_LOCAL_FIRST ? new URL('../../vendor/three.module.js', import.meta.url).href : null,
