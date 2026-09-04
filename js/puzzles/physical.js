@@ -16,17 +16,19 @@ const PROPS = [
 ];
 
 // 磁取杖尖的縫隙地圖：# 牆、. 通道、S 起點、E 出口
-const MAZE = [
-  '##########',
-  '#S...#...#',
-  '###.#.#.##',
-  '#...#.#..#',
-  '#.###.##.#',
-  '#.....#..#',
-  '#.####.#.#',
-  '#....#.#.#',
-  '####.#..E#',
-  '##########'
+// 用回溯法生成的完美迷宮，最短路徑 24 格；tools/test/maze.mjs 會驗證連通性。
+export const MAZE = [
+  '###########',
+  '#S#...#...#',
+  '#.#.#.#.#.#',
+  '#...#...#.#',
+  '#########.#',
+  '#...#...#.#',
+  '#.#.#.#.#.#',
+  '#.#.#.#.#.#',
+  '#.#.#.#.#.#',
+  '#.#...#..E#',
+  '###########'
 ];
 
 export function registerPhysical(ctx, reg) {
@@ -199,7 +201,7 @@ export function registerPhysical(ctx, reg) {
             const dy = magnet.y - tip.y;
             const dist = Math.hypot(dx, dy);
             if (dist > 1 && dist < cell * 3.4) {
-              const step = Math.min(dist, 82 * dt);
+              const step = Math.min(dist, 105 * dt);
               const nx = tip.x + (dx / dist) * step;
               const ny = tip.y + (dy / dist) * step;
               if (!blocked(nx, tip.y)) tip.x = nx;

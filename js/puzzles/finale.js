@@ -90,8 +90,10 @@ export function registerFinale(ctx, reg) {
 
     const other = rope === 0 ? 1 : 0;
     const gap = Math.abs(pulled[rope] - pulled[other]);
-    if (!pulled[other] || gap > 1800) {
-      hud.toast('另一條繩還沒受力');
+    const WINDOW = 3000;               // 一個人也拉得完的時間窗
+    if (!pulled[other] || gap > WINDOW) {
+      hud.toast(`${rope === 0 ? '左' : '右'}繩受力中 —— 三秒內拉下另一條`);
+      hud.setObjective('趁左右兩條幕繩都還受力時拉下另一條');
       return;
     }
 

@@ -96,6 +96,9 @@ curl -o vendor/three.module.js https://unpkg.com/three@0.160.0/build/three.modul
 | **Shift** | 快走 |
 | **空白鍵** | 跳過開場旁白 |
 
+腳步序列（G05）是**站上腳印停一下**才算一步，路過不會誤觸；
+踩到不對的腳印會先轉紅警告，你有時間退開。
+
 ### 手機／平板
 
 觸控裝置會自動顯示螢幕控制：
@@ -168,14 +171,28 @@ node tools/check-imports.mjs      # 檢查 31 個模組的語法、import 路徑
 無頭瀏覽器測試（需要 puppeteer 與 Chrome，僅開發環境需要）：
 
 ```bash
-node tools/test/all.mjs           # 一次跑完下面全部
+node tools/test/all.mjs           # 全部（含玩家模擬，約 12–15 分鐘）
+node tools/test/all.mjs quick     # 只跑快的那幾組（約 3 分鐘）
+node tools/test/all.mjs sim       # 只跑三段玩家視角模擬
+
+# 個別執行
 node tools/test/overlay.mjs       # 遮罩與點擊穿透（防止「畫面全黑」重演）
-node tools/test/lighting.mjs      # 燈光預算：太暗與過曝的雙向下限保護
+node tools/test/lighting.mjs      # 燈光預算：太暗與過曝的雙向保護
+node tools/test/maze.mjs          # 磁鐵迷宮的連通性（曾經出過無解的迷宮）
+node tools/test/usability.mjs     # 可用性稽核：每個互動點的螢幕大小、可及性、仰角
 node tools/test/touch.mjs         # 螢幕搖桿、多點觸控、亮度設定
 node tools/test/prototype.mjs     # 單一檔案原型
 node tools/test/robustness.mjs    # 韌性檢查（錯誤輸入、存讀檔、倒數結束、雙結局）
-node tools/test/playthrough.mjs   # 走完 26 個節點與一個結局
+node tools/test/playthrough.mjs   # 腳本驅動走完 26 個節點
+node tools/test/user-sim-1.mjs    # 玩家模擬：序幕與光影線
+node tools/test/user-sim-2.mjs    # 玩家模擬：聲音線與物理線
+node tools/test/user-sim-3.mjs    # 玩家模擬：合流與終幕
 ```
+
+「玩家視角模擬」只用玩家真的做得到的動作：按 WASD 走路（含自動繞開障礙）、
+拖曳滑鼠轉視角、把游標移到物件上再點擊、以及點面板裡的按鈕。
+完全不呼叫 `game.trigger` 或 `store.complete`，所以它驗的是「照著遊戲給的提示，
+玩家真的走得完嗎」。
 
 測試會攔截 three.js 的 CDN 請求並換成 `tools/test/three-stub.js`，
 所以能在沒有 GPU／沒有網路的環境驗證邏輯（但不驗證畫面）。

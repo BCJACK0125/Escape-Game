@@ -221,9 +221,9 @@ const result = await page.evaluate(async () => {
   for (const n of order) {
     const plate = ctx.world.stage.plates.find((p) => p.n === n);
     ctx.controls.teleport(plate.x, plate.z);
-    await wait(120);
-    ctx.controls.teleport(0, 3.4);   // 離開感測區
-    await wait(120);
+    await wait(950);                 // 站定 0.75 秒才算一步
+    ctx.controls.teleport(0, 3.45);  // 離開感測區
+    await wait(200);
   }
   if (!done('G05')) fail.push(`G05 腳步序列未完成，seq=${JSON.stringify(store.flag('footSeq'))}`);
 

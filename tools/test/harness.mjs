@@ -25,7 +25,11 @@ export async function withPage(port, fn) {
   await new Promise((r) => server.listen(port, r));
 
   const stub = await readFile(join(ROOT, 'tools/test/three-stub.js'), 'utf8');
-  const browser = await puppeteer.launch({ headless: 'shell', args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'] });
+  const browser = await puppeteer.launch({
+    headless: 'shell',
+    protocolTimeout: 900000,     // 玩家視角模擬會跑好幾分鐘
+    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+  });
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));

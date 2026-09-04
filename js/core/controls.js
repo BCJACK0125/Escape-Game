@@ -214,6 +214,9 @@ export function createControls({ camera, dom, engine, store }) {
     },
     onTap(fn) { tapHandlers.add(fn); return () => tapHandlers.delete(fn); },
     addCollider(box) { colliders.push(box); },
+    get colliders() { return colliders.slice(); },
+    /** 這個座標玩家站不站得進去（測試與導引用） */
+    canStand(x, z) { return !collides(x, z); },
     addBoxCollider(cx, cz, sx, sz) {
       colliders.push({ minX: cx - sx / 2, maxX: cx + sx / 2, minZ: cz - sz / 2, maxZ: cz + sz / 2 });
     },

@@ -186,7 +186,7 @@ export function registerConverge(ctx, reg) {
         hud.flash('ok');
         hud.hideMeter();
         hud.say(`散落的線段合成五個數字：${ANSWERS.perspectiveDigits.split('').join('-')}`, 5200);
-        hud.setObjective('依 2-5-1-4-3 走過地上的五個腳印');
+        hud.setObjective('依 2-5-1-4-3 站上五個腳印，每個停一下');
       }
     } else {
       holdAlign = Math.max(0, holdAlign - dt * 2);
@@ -194,16 +194,34 @@ export function registerConverge(ctx, reg) {
   });
 
   // ── G05 腳步序列 ──────────────────────────────────────────
-  let lastPlate = null;
+  // 判定是「站上去停一下」而不是「碰到就算」，
+  // 否則走去下一個腳印時會刷過旁邊的腳印，被判成踩錯。
+  let onPlate = null;
+  let dwell = 0;
+  let counted = false;
 
-  engine.onUpdate(() => {
+  engine.onUpdate((dt) => {
     if (!store.isDone('G04') || store.isDone('G05')) return;
     const n = stage.plateUnder(camera.position.x, camera.position.z);
-    if (n === lastPlate) return;
-    lastPlate = n;
-    if (n == null) return;
 
-    const seq = store.flag('footSeq', []) || [];
+    if (n !== onPlate) {
+      onPlate = n;
+      dwell = 0;
+      counted = false;
+      return;
+    }
+    if (n == null || counted) return;
+
+    const seqNow = store.flag('footSeq', []) || [];
+    const isWrong = n !== ANSWERS.footsteps[seqNow.length];
+
+    dwell += dt;
+    stage.setPlateDwell(n, Math.min(1, dwell / 0.75), isWrong);
+    if (isWrong && dwell > 0.3 && dwell < 0.32) hud.toast('這不是下一個腳印');
+    if (dwell < 0.75) return;      // 站定才算一步；路過不會誤觸
+    counted = true;
+
+    const seq = seqNow;
     const expected = ANSWERS.footsteps[seq.length];
 
     if (n !== expected) {
@@ -212,7 +230,7 @@ export function registerConverge(ctx, reg) {
       stage.plateErrorFlash();
       A.error();
       hud.flash('fail');
-      hud.toast('踩錯了，序列清除');
+      hud.toast(`踩到 ${n}，序列清除`);
       return;
     }
 

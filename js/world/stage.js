@@ -46,12 +46,14 @@ const DIGIT_PLAN = [
 ];
 
 // 腳步感測區：號碼 → 位置
+// 位置要避開椅子與立鏡的碰撞範圍，彼此也要夠遠，
+// 而且判定改成「站上去停一下」，所以路過不會誤觸。
 const FOOT_PLATES = [
-  { n: 1, x: -1.95, z: 2.45 },
-  { n: 2, x: -0.95, z: 1.35 },
-  { n: 3, x: 0.0, z: 2.55 },
-  { n: 4, x: 0.95, z: 1.35 },
-  { n: 5, x: 1.95, z: 2.45 }
+  { n: 1, x: -2.45, z: 2.05 },
+  { n: 2, x: -1.25, z: 2.70 },
+  { n: 3, x: 0.00, z: 1.70 },
+  { n: 4, x: 1.25, z: 2.70 },
+  { n: 5, x: 2.45, z: 2.05 }
 ];
 
 export function buildStage({ scene, interaction, store, game, controls, room }) {
@@ -324,7 +326,8 @@ export function buildStage({ scene, interaction, store, game, controls, room }) 
   });
 
   // 兩條幕繩（F03）
-  const pullRopes = [-2.4, 2.4].map((x, i) => {
+  // ±2.1 m：站在謝幕弧線（z≈2.9）上時，兩條繩都在 2.2 m 內，一個人拉得完
+  const pullRopes = [-2.1, 2.1].map((x, i) => {
     const holder = new THREE.Group();
     holder.position.set(x, 0, ROOM.halfD - 0.62);
     const line = new THREE.Mesh(
@@ -342,7 +345,9 @@ export function buildStage({ scene, interaction, store, game, controls, room }) 
       id: `curtain-rope-${i}`,
       label: `幕繩 ${i === 0 ? '左' : '右'}`,
       hint: '兩條要同時受力',
-      distance: 2.4,
+      distance: 3.0,
+      hitBox: [0.34, 0.8, 0.34],
+      hitOffset: [0, 0.1, 0],
       enabled: () => store.isDone('F02') && !store.isDone('F03'),
       onClick: () => game.trigger('F03', { rope: i })
     });
@@ -470,9 +475,19 @@ export function buildStage({ scene, interaction, store, game, controls, room }) 
     /** 玩家目前站在哪個腳印上（或 null） */
     plateUnder(x, z) {
       for (const p of plates) {
-        if (Math.hypot(x - p.x, z - p.z) < 0.42) return p.n;
+        if (Math.hypot(x - p.x, z - p.z) < 0.38) return p.n;
       }
       return null;
+    },
+
+    isLit(n) { return !!plates.find((x) => x.n === n)?.lit; },
+
+    /** 站定的進度（0..1）。踩錯時轉紅，玩家在被清除前就看得出來 */
+    setPlateDwell(n, t, wrong = false) {
+      const p = plates.find((x) => x.n === n);
+      if (!p || p.lit) return;
+      p.mesh.material.emissive.setHex(wrong ? 0xff5a4a : 0xc8a44d);
+      p.mesh.material.emissiveIntensity = 0.25 + t * 1.3;
     },
 
     openNiche() {
@@ -484,11 +499,12 @@ export function buildStage({ scene, interaction, store, game, controls, room }) 
 
     showBowMarks(on) { bowMarks.visible = on; },
 
-    pullCurtainRope(i) {
+    pullCurtainRope(i, holdMs = 3000) {
       const r = pullRopes[i];
       if (!r) return;
       r.target = 1;
-      setTimeout(() => { r.target = 0; }, 700);
+      clearTimeout(r.timer);
+      r.timer = setTimeout(() => { r.target = 0; }, holdMs);
     },
 
     playFilm() { screenGlow = 1; },

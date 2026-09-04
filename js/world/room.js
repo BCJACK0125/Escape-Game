@@ -110,8 +110,8 @@ export function buildRoom({ scene, controls }) {
     return plate;
   }
   signage('光影畫廊', [-4.6, 2.95, -halfD + 0.03], 0);
-  signage('聲音檔案區', [halfW - 0.03, 2.95, 1.1], -Math.PI / 2);
-  signage('機關工作檯', [-halfW + 0.03, 2.95, -1.1], Math.PI / 2);
+  signage('聲音檔案區', [halfW - 0.03, 2.95, -1.7], -Math.PI / 2);
+  signage('機關工作檯', [-halfW + 0.03, 2.95, 1.6], Math.PI / 2);
 
   // ── 北牆鐘面（P02）────────────────────────────────────────
   const clockGroup = new THREE.Group();
@@ -147,14 +147,14 @@ export function buildRoom({ scene, controls }) {
   const lamp = new THREE.Group();
   lamp.position.set(0, 0, -2.35);
   const cord = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.008, 0.008, 0.9, 6),
+    new THREE.CylinderGeometry(0.008, 0.008, 1.3, 6),
     new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 1 })
   );
-  cord.position.y = H - 0.45;
+  cord.position.y = H - 0.65;
   lamp.add(cord);
 
   const shade = new THREE.Group();
-  shade.position.y = H - 0.95;
+  shade.position.y = H - 1.30;
   const shadeBody = new THREE.Mesh(
     new THREE.CylinderGeometry(0.34, 0.46, 0.4, 24, 1, true),
     new THREE.MeshStandardMaterial({
@@ -181,21 +181,31 @@ export function buildRoom({ scene, controls }) {
   lamp.add(shade);
 
   // 舞台燈繩（P01 的操作對象）
+  // 握把刻意放在 1.42 m —— 站著伸手就到的高度，而不是在視線上方。
   const pullCord = new THREE.Group();
   pullCord.position.set(0.62, 0, -2.35);
+  const KNOB_Y = 1.42;
   const cordLine = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.006, 0.006, 1.5, 6),
-    new THREE.MeshStandardMaterial({ color: 0xd8c9a8, roughness: 1, emissive: 0x1a1610, emissiveIntensity: 1 })
+    new THREE.CylinderGeometry(0.009, 0.009, H - KNOB_Y - 0.06, 6),
+    new THREE.MeshStandardMaterial({ color: 0xe4d7ba, roughness: 1, emissive: 0x2a2418, emissiveIntensity: 1 })
   );
-  cordLine.position.y = H - 0.75;
+  cordLine.position.y = KNOB_Y + (H - KNOB_Y) / 2;
   pullCord.add(cordLine);
-  const cordKnob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 10), M.brass());
-  cordKnob.position.y = H - 1.55;
+  // 銅環 + 流蘇握把：比原本的小球明顯得多
+  const cordRing = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.011, 8, 18), M.brass());
+  cordRing.rotation.x = Math.PI / 2;
+  cordRing.position.y = KNOB_Y + 0.16;
+  pullCord.add(cordRing);
+  const cordKnob = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.2, 14), M.brass());
+  cordKnob.position.y = KNOB_Y;
   pullCord.add(cordKnob);
+  const cordTip = new THREE.Mesh(new THREE.SphereGeometry(0.035, 14, 10), M.brass());
+  cordTip.position.y = KNOB_Y - 0.11;
+  pullCord.add(cordTip);
   group.add(lamp, pullCord);
 
   const lampLight = new THREE.PointLight(0xffcf94, 0, 15, 2);
-  lampLight.position.set(0, H - 1.0, -2.35);
+  lampLight.position.set(0, H - 1.36, -2.35);
   lampLight.castShadow = true;
   lampLight.shadow.mapSize.set(1024, 1024);
   group.add(lampLight);
@@ -249,6 +259,7 @@ export function buildRoom({ scene, controls }) {
 
   // ── 對外狀態 ──────────────────────────────────────────────
   let lampOn = false;
+  let cordHint = false;
   let shadeAngle = deg(0);
   let targetShadeAngle = shadeAngle;
 
@@ -257,6 +268,16 @@ export function buildRoom({ scene, controls }) {
     pullCord, lamp,
     get lampOn() { return lampOn; },
     get shadeAngle() { return shadeAngle; },
+
+    /** 序幕的導引：讓燈繩握把在黑暗中自己呼吸，玩家才找得到 */
+    setCordHint(on) {
+      cordHint = on;
+      [cordKnob, cordRing, cordTip].forEach((m) => {
+        m.material.emissive.setHex(on ? 0xf0d48a : 0x2a1d06);
+        m.material.emissiveIntensity = on ? 1.4 : 1;
+      });
+      cordLine.material.emissiveIntensity = on ? 2.2 : 1;
+    },
 
     setLampOn(on) {
       lampOn = on;
@@ -305,6 +326,11 @@ export function buildRoom({ scene, controls }) {
       minuteHand.rotation.z = -shadeAngle * 12;
       if (lampOn) {
         lampLight.intensity = 34 + Math.sin(elapsed * 7.3) * 1.1;
+      }
+      if (cordHint) {
+        const pulse = 1.3 + Math.sin(elapsed * 2.1) * 0.9;
+        [cordKnob, cordRing, cordTip].forEach((m) => { m.material.emissiveIntensity = pulse; });
+        cordLine.material.emissiveIntensity = 1.6 + Math.sin(elapsed * 2.1) * 0.7;
       }
       // 塵埃緩慢上浮
       const pos = dustGeo.attributes.position.array;

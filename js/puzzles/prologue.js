@@ -64,10 +64,14 @@ export function registerPrologue(ctx, reg) {
       api.ok('六個字連成一句：拉下舞台燈繩。');
       store.addClue('invitation');
       if (store.complete('P01')) {
-        setTimeout(() => {
+        setTimeout(async () => {
           panel.close();
-          hud.setObjective('拉下舞台燈繩');
-          hud.say('「繩子還掛在老位置。」', 3600);
+          hud.setObjective('拉下舞台燈繩：房間中央、吊燈旁垂下來的那一條');
+          hud.toast('轉身往房間中央看，繩子的銅握把在發光');
+          await hud.sequence([
+            '「繩子還掛在老位置。」',
+            '房間中央的吊燈旁垂下一條繩，銅製握把在黑暗裡微微發亮。'
+          ], 3400);
         }, 1400);
       }
     }
@@ -78,8 +82,16 @@ export function registerPrologue(ctx, reg) {
     id: 'pull-cord',
     label: '舞台燈繩',
     hint: () => (store.isDone('P01') ? '拉下去' : '先讀邀請函'),
-    distance: 2.4,
+    distance: 2.6,
+    hitBox: [0.4, 1.5, 0.4],       // 繩子本身只有 9 mm 寬，靠隱形命中框才點得到
+    hitOffset: [0, 1.6, 0],
     onClick: () => ctx.game.trigger('P01-cord')
+  });
+
+  // 序幕導引：讀完信之後，讓黑暗中的握把自己發光
+  if (store.isDone('P01') && !world.room.lampOn) world.room.setCordHint(true);
+  store.on('node:done', ({ id }) => {
+    if (id === 'P01') world.room.setCordHint(true);
   });
 
   reg('P01-cord', () => {
@@ -89,6 +101,7 @@ export function registerPrologue(ctx, reg) {
     }
     const on = !world.room.lampOn;
     world.room.setLampOn(on);
+    world.room.setCordHint(false);
     audio.latch();
     if (on) {
       hud.flash('ok');
@@ -119,7 +132,7 @@ export function registerPrologue(ctx, reg) {
     controls.enabled = false;
     interaction.setEnabled(false);
     document.body.classList.add('mode-adjust');
-    hud.say('左右拖曳滑鼠（或用 A／D）轉動燈罩，按 Esc 離開。', 5200);
+    hud.say('左右拖曳滑鼠轉動燈罩（A／D 微調、按住 Shift 快轉），按 Esc 離開。', 5200);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('keydown', onKey);
   }
@@ -143,8 +156,10 @@ export function registerPrologue(ctx, reg) {
   function onKey(e) {
     if (!adjusting) return;
     if (e.code === 'Escape') { exitAdjust(); return; }
-    if (e.code === 'KeyA' || e.code === 'ArrowLeft') world.room.nudgeShade(-0.06);
-    if (e.code === 'KeyD' || e.code === 'ArrowRight') world.room.nudgeShade(0.06);
+    // 一格 0.015 弧度 ≈ 鐘面 1.7 分鐘，必須小於判定窗（±3 分）才轉得進去
+    const stepSize = e.shiftKey ? 0.06 : 0.015;
+    if (e.code === 'KeyA' || e.code === 'ArrowLeft') world.room.nudgeShade(-stepSize);
+    if (e.code === 'KeyD' || e.code === 'ArrowRight') world.room.nudgeShade(stepSize);
   }
 
   reg('P02', () => {
@@ -161,10 +176,10 @@ export function registerPrologue(ctx, reg) {
     const target = ANSWERS.clockTarget;
     const diff = Math.abs(t.hoursFloat - (target.hour + target.minute / 60));
     const wrapped = Math.min(diff, 12 - diff);
-    const near = Math.max(0, 1 - wrapped / 0.6);
+    const near = Math.max(0, 1 - wrapped / 0.8);
     hud.showMeter('影子時鐘', near, `${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`);
 
-    if (wrapped < 0.035) {   // 約 ±2 分鐘
+    if (wrapped < 0.05) {    // 約 ±3 分鐘，鍵盤與滑鼠都對得進來
       holdTime += dt;
       if (holdTime > 0.6) {
         world.room.revealClock();

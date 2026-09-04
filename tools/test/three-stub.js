@@ -154,10 +154,143 @@ export class Clock {
   start() { this.last = performance.now(); }
   getDelta() { const now = performance.now(); const d = (now - this.last) / 1000; this.last = now; this.elapsedTime += d; return d; }
 }
+// ── 幾何尺寸推算（供射線求交用）──────────────────────────────
+function geoExtents(geo) {
+  const p = geo?.parameters || [];
+  const n = (i, d) => (typeof p[i] === 'number' ? p[i] : d);
+  switch (geo?.type) {
+    case 'BoxGeometry': return [n(0, 1), n(1, 1), n(2, 1)];
+    case 'PlaneGeometry': return [n(0, 1), n(1, 1), 0.02];
+    case 'CylinderGeometry': { const r = Math.max(n(0, 1), n(1, 1)); return [2 * r, n(2, 1), 2 * r]; }
+    case 'SphereGeometry': { const r = n(0, 1); return [2 * r, 2 * r, 2 * r]; }
+    case 'ConeGeometry': { const r = n(0, 1); return [2 * r, n(1, 1), 2 * r]; }
+    case 'TorusGeometry': { const r = n(0, 1) + n(1, 0.1); return [2 * r, 2 * r, 2 * n(1, 0.1)]; }
+    case 'CircleGeometry': { const r = n(0, 1); return [2 * r, 2 * r, 0.02]; }
+    case 'RingGeometry': { const r = n(1, 1); return [2 * r, 2 * r, 0.02]; }
+    default: return [0.2, 0.2, 0.2];
+  }
+}
+
+const IDENT = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+function eulerMat(rot, order = 'XYZ') {
+  const cx = Math.cos(rot.x), sx = Math.sin(rot.x);
+  const cy = Math.cos(rot.y), sy = Math.sin(rot.y);
+  const cz = Math.cos(rot.z), sz = Math.sin(rot.z);
+  const RX = [1, 0, 0, 0, cx, -sx, 0, sx, cx];
+  const RY = [cy, 0, sy, 0, 1, 0, -sy, 0, cy];
+  const RZ = [cz, -sz, 0, sz, cz, 0, 0, 0, 1];
+  return order === 'YXZ' ? mul(mul(RY, RX), RZ) : mul(mul(RX, RY), RZ);
+}
+function mul(a, b) {
+  const o = new Array(9);
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      o[r * 3 + c] = a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c];
+    }
+  }
+  return o;
+}
+function apply(m, v) {
+  return [
+    m[0] * v[0] + m[1] * v[1] + m[2] * v[2],
+    m[3] * v[0] + m[4] * v[1] + m[5] * v[2],
+    m[6] * v[0] + m[7] * v[1] + m[8] * v[2]
+  ];
+}
+/** 累積父階層的位移、旋轉與縮放，得到世界矩陣與位置 */
+export function worldOf(obj) {
+  const chain = [];
+  let o = obj;
+  while (o) { chain.unshift(o); o = o.parent; }
+  let m = IDENT;
+  let p = [0, 0, 0];
+  for (const node of chain) {
+    const sc = node.scale || { x: 1, y: 1, z: 1 };
+    const local = apply(m, [node.position.x * sc.x, node.position.y * sc.y, node.position.z * sc.z]);
+    p = [p[0] + local[0], p[1] + local[1], p[2] + local[2]];
+    m = mul(m, eulerMat(node.rotation));
+  }
+  return { m, p };
+}
+/** 世界空間的軸對齊邊界盒（用旋轉後的絕對值展開，保守但夠用） */
+export function worldBox(mesh) {
+  const { m, p } = worldOf(mesh);
+  const e = geoExtents(mesh.geometry).map((v) => Math.abs(v) / 2);
+  const sc = mesh.scale || { x: 1, y: 1, z: 1 };
+  const local = [e[0] * Math.abs(sc.x), e[1] * Math.abs(sc.y), e[2] * Math.abs(sc.z)];
+  const half = [0, 1, 2].map((row) =>
+    Math.abs(m[row * 3]) * local[0] + Math.abs(m[row * 3 + 1]) * local[1] + Math.abs(m[row * 3 + 2]) * local[2]);
+  return { center: p, half };
+}
+
+function rayBox(origin, dir, box) {
+  let tmin = 0;
+  let tmax = Infinity;
+  for (let i = 0; i < 3; i++) {
+    const lo = box.center[i] - box.half[i];
+    const hi = box.center[i] + box.half[i];
+    if (Math.abs(dir[i]) < 1e-8) {
+      if (origin[i] < lo || origin[i] > hi) return null;
+    } else {
+      let t1 = (lo - origin[i]) / dir[i];
+      let t2 = (hi - origin[i]) / dir[i];
+      if (t1 > t2) { const t = t1; t1 = t2; t2 = t; }
+      tmin = Math.max(tmin, t1);
+      tmax = Math.min(tmax, t2);
+      if (tmin > tmax) return null;
+    }
+  }
+  return tmin;
+}
+
 export class Raycaster {
-  constructor() { this.far = Infinity; this.ray = { origin: new V3(), direction: new V3() }; }
-  setFromCamera() {}
-  intersectObjects() { return window.__stubHits || []; }
+  constructor() {
+    this.far = Infinity;
+    this.near = 0;
+    this.ray = { origin: new V3(), direction: new V3(0, 0, -1) };
+  }
+
+  setFromCamera(ndc, camera) {
+    const { m, p } = worldOf(camera);
+    const cm = mul(IDENT, eulerMat(camera.rotation, 'YXZ'));
+    const forward = apply(cm, [0, 0, -1]);
+    const right = apply(cm, [1, 0, 0]);
+    const up = apply(cm, [0, 1, 0]);
+    const tanV = Math.tan(((camera.fov || 60) * Math.PI) / 360);
+    const tanH = tanV * (camera.aspect || 1.6);
+    const d = [0, 1, 2].map((i) =>
+      forward[i] + right[i] * tanH * (ndc?.x || 0) + up[i] * tanV * (ndc?.y || 0));
+    const len = Math.hypot(...d) || 1;
+    this.ray.origin.set(p[0], p[1], p[2]);
+    this.ray.direction.set(d[0] / len, d[1] / len, d[2] / len);
+    void m;
+  }
+
+  intersectObjects(objects, recursive = true) {
+    // 測試可以用 window.__stubHits 覆寫，維持既有測試的相容性
+    if (window.__stubHits && window.__stubHits.length) return window.__stubHits;
+
+    const origin = [this.ray.origin.x, this.ray.origin.y, this.ray.origin.z];
+    const dir = [this.ray.direction.x, this.ray.direction.y, this.ray.direction.z];
+    const hits = [];
+    const visit = (node) => {
+      if (!node || node.visible === false) return;
+      // three.js r160 的 Raycaster 不會因為材質 visible:false 就跳過，隱形命中框才有用
+      if (node.isMesh && node.geometry) {
+        const t = rayBox(origin, dir, worldBox(node));
+        if (t !== null && t <= this.far) {
+          hits.push({
+            object: node,
+            distance: t,
+            point: new V3(origin[0] + dir[0] * t, origin[1] + dir[1] * t, origin[2] + dir[2] * t)
+          });
+        }
+      }
+      if (recursive) (node.children || []).forEach(visit);
+    };
+    (objects || []).forEach(visit);
+    return hits.sort((a, b) => a.distance - b.distance);
+  }
 }
 export class WebGLRenderer {
   constructor(opts = {}) {

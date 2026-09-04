@@ -119,7 +119,7 @@ export function buildDesk({ scene, interaction, store, game, controls }) {
     id: 'drawer-keypad',
     label: '工具抽屜鍵盤',
     hint: () => (store.isDone('P03') ? '抽屜已經開了' : '輸入四位數'),
-    distance: 1.9,
+    distance: 2.2,
     onClick: () => game.trigger('P03')
   });
 

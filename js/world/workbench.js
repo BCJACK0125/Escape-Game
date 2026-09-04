@@ -10,14 +10,14 @@ const WEST = -ROOM.halfW + 0.05;
 
 // 感測牆節點：[z, y, 方位]；面對西牆時 z 越小＝越靠玩家右手邊
 const NODES_POS = [
-  [1.2, 2.42, 'N'],
-  [0.45, 1.68, 'E'],
-  [1.2, 0.98, 'S'],
-  [1.95, 1.68, 'W'],
-  [0.68, 2.18, null],
-  [1.72, 2.18, null],
-  [0.68, 1.18, null],
-  [1.72, 1.18, null]
+  [1.2, 2.20, 'N'],
+  [0.45, 1.62, 'E'],
+  [1.2, 1.04, 'S'],
+  [1.95, 1.62, 'W'],
+  [0.68, 2.02, null],
+  [1.72, 2.02, null],
+  [0.68, 1.22, null],
+  [1.72, 1.22, null]
 ];
 
 export function buildWorkbench({ scene, interaction, store, game, controls }) {
@@ -174,6 +174,7 @@ export function buildWorkbench({ scene, interaction, store, game, controls }) {
 
   interaction.add(wandParts, {
     id: 'wand-parts',
+    hitBox: [0.32, 0.22, 0.78],
     label: () => (store.hasItem('wand') ? '完整魔杖' : '三段魔杖'),
     hint: () => (store.hasItem('wand-tip') ? '轉動各段對齊木紋' : '缺了最後一段'),
     distance: 2.0,
@@ -203,6 +204,7 @@ export function buildWorkbench({ scene, interaction, store, game, controls }) {
       label: '星座節點',
       hint: () => (store.hasItem('wand') ? '用杖尖碰觸' : '需要完整的魔杖'),
       distance: 2.2,
+      hitBox: [0.16, 0.2, 0.2],
       enabled: () => !store.isDone('M04'),
       onClick: () => game.trigger('M04', { dir, index: i })
     });

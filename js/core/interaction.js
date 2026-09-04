@@ -53,6 +53,20 @@ export function createInteraction({ engine, camera, controls, hud, audio }) {
   const api = {
     add(object, opts = {}) {
       const entry = { object, opts: Object.assign({ distance: INTERACT.maxDistance, highlight: true }, opts) };
+      // 細長或零碎的物件（燈繩、鐘繩、節點）自己的幾何太窄，滑鼠很難對上。
+      // 這裡掛一個隱形的命中框：外觀不變，但射線打得到。
+      if (opts.hitBox) {
+        const [w, h, d] = opts.hitBox;
+        const off = opts.hitOffset || [0, 0, 0];
+        const proxy = new THREE.Mesh(
+          new THREE.BoxGeometry(w, h, d),
+          new THREE.MeshBasicMaterial({ visible: false })
+        );
+        proxy.position.set(off[0], off[1], off[2]);
+        proxy.userData.__noHighlight = true;
+        proxy.userData.__hitProxy = true;
+        object.add(proxy);
+      }
       if (entry.opts.highlight) prepareHighlight(object);
       object.userData.interactive = entry.opts;
       registry.push(entry);
@@ -77,6 +91,8 @@ export function createInteraction({ engine, camera, controls, hud, audio }) {
       if (entry) Object.assign(entry.opts, patch);
     },
 
+    get enabled() { return globalEnabled; },
+
     setEnabled(v) {
       globalEnabled = v;
       if (!v) api.clearHover();
@@ -90,6 +106,9 @@ export function createInteraction({ engine, camera, controls, hud, audio }) {
     },
 
     get hovered() { return hovered; },
+
+    /** 稽核／測試用：列出所有已註冊的互動點 */
+    list() { return registry.slice(); },
 
     /** 以畫面中央為準心觸發（螢幕上的「互動」鈕、E 鍵都走這裡） */
     activateCenter() { activate(CENTER); },

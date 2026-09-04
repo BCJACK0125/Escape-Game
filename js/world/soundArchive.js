@@ -8,8 +8,10 @@ import { BELL_SPECS } from '../core/audio.js';
 import { damp, deg, clamp } from '../core/util.js';
 
 const EAST = ROOM.halfW - 0.05;
-const ROPE_X = 4.35;
-const ROPE_Z = [-2.7, -2.0, -1.3, -0.6, 0.1];
+const ROPE_X = 4.4;
+// 鐘繩集中在東牆北半邊（間距 0.85 m），南半邊留給電話桌、唱機與雕塑，
+// 這樣站在桌前時視線不會被垂下的繩子擋住。
+const ROPE_Z = [-3.0, -2.35, -1.7, -1.05, -0.4];
 
 export function buildSoundArchive({ scene, interaction, store, game, controls }) {
   const group = new THREE.Group();
@@ -37,9 +39,10 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
   }
 
   // ── 票根電話（S01）────────────────────────────────────────
-  const phoneTable = sideTable(-1.6);
+  const PHONE_Z = 1.75;
+  const phoneTable = sideTable(PHONE_Z);
   const phone = new THREE.Group();
-  phone.position.set(phoneTable.position.x, 0.81, -1.6);
+  phone.position.set(phoneTable.position.x, 0.81, PHONE_Z);
   const phoneBase = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.09, 0.3), M.darkMetal({ color: 0x1d1a1c }));
   phone.add(phoneBase);
   const dialRing = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.017, 8, 26), brass);
@@ -63,14 +66,14 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
 
   // 四張票根
   const stubs = new THREE.Group();
-  [[0.06, -1.36], [-0.02, -1.42], [0.1, -1.86], [0.0, -1.92]].forEach(([dx, z], i) => {
+  [[0.06, 0.24], [-0.02, 0.18], [0.1, -0.26], [0.0, -0.32]].forEach(([dx, dz], i) => {
     const stub = new THREE.Mesh(
       new THREE.PlaneGeometry(0.16, 0.075),
       M.paper(labelTexture(`票根 ${i + 1}`, { w: 256, h: 120, size: 44, bg: '#e6dcc0', color: '#2b1f14' }))
     );
     stub.rotation.x = -Math.PI / 2;
     stub.rotation.z = deg(-8 + i * 7);
-    stub.position.set(phoneTable.position.x + dx, 0.815, z);
+    stub.position.set(phoneTable.position.x + dx, 0.815, PHONE_Z + dz);
     stubs.add(stub);
   });
   group.add(stubs);
@@ -91,9 +94,10 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
   });
 
   // ── 聲紋唱片（S02）────────────────────────────────────────
-  const gramTable = sideTable(0.8);
+  const GRAM_Z = 0.7;
+  const gramTable = sideTable(GRAM_Z);
   const gram = new THREE.Group();
-  gram.position.set(gramTable.position.x, 0.81, 0.8);
+  gram.position.set(gramTable.position.x, 0.81, GRAM_Z);
   const gramBox = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.14, 0.34), wood);
   gramBox.position.y = 0.07;
   gram.add(gramBox);
@@ -178,7 +182,9 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
       id: `rope-${i}`,
       label: () => `第 ${i + 1} 條鐘繩 · ${BELL_SPECS[i].name}`,
       hint: '拉下去',
-      distance: 2.2,
+      distance: 2.4,
+      hitBox: [0.24, 0.6, 0.24],
+      hitOffset: [0, 0.08, 0],
       enabled: () => store.isDone('S02') || !store.isDone('S03'),
       onClick: () => game.trigger('S03', { rope: i })
     });
@@ -188,7 +194,7 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
 
   // 重播音序的小平台
   const replay = new THREE.Group();
-  replay.position.set(EAST - 0.2, 1.15, -2.9);
+  replay.position.set(EAST - 0.2, 1.15, -3.4);
   const replayPlate = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.34), wood);
   replay.add(replayPlate);
   const replayBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.04, 16), brass);
@@ -217,7 +223,7 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
 
   // ── 耳朵雕塑 + LED 環（S04）───────────────────────────────
   const earGroup = new THREE.Group();
-  earGroup.position.set(EAST - 0.28, 1.42, 2.5);
+  earGroup.position.set(EAST - 0.28, 1.42, 3.0);
   const pedestal = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.4, 0.4), M.darkMetal({ color: 0x25232a }));
   pedestal.position.y = -0.72;
   earGroup.add(pedestal);
@@ -241,7 +247,7 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
   // LED 環（12 格）
   const ledSegments = [];
   const ledRing = new THREE.Group();
-  ledRing.position.set(EAST - 0.02, 1.5, 2.5);
+  ledRing.position.set(EAST - 0.02, 1.5, 3.0);
   ledRing.rotation.y = -Math.PI / 2;
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
@@ -266,7 +272,7 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
 
   // ── 暗格 + 迷你留聲機 + 月亮徽記（S05）───────────────────
   const compartment = new THREE.Group();
-  compartment.position.set(EAST - 0.2, 0.62, 2.5);
+  compartment.position.set(EAST - 0.2, 0.62, 3.0);
   const hatch = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.34, 0.46), wood);
   compartment.add(hatch);
   const cavity = new THREE.Mesh(

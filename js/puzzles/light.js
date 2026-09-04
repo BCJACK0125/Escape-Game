@@ -153,7 +153,7 @@ export function registerLight(ctx, reg) {
             if (placed[sheet.id]) return;
             dragging = true;
             origin = { x: e.clientX - pos.x, y: e.clientY - pos.y };
-            node.setPointerCapture(e.pointerId);
+            try { node.setPointerCapture(e.pointerId); } catch { /* 沒有作用中的指標時忽略 */ }
             node.classList.add('is-dragging');
           });
           node.addEventListener('pointermove', (e) => {
