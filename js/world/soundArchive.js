@@ -216,7 +216,7 @@ export function buildSoundArchive({ scene, interaction, store, game, controls })
   interaction.add(replay, {
     id: 'bell-replay',
     label: '重播音序',
-    hint: () => (store.isDone('S02') ? '再聽一次唱片給的順序' : '還沒有可播的順序'),
+    hint: () => (store.challenge ? '台面有五道刻痕' : (store.isDone('S02') ? '再聽一次唱片給的順序' : '還沒有可播的順序')),
     distance: 2.2,
     onClick: () => game.trigger('S03-replay')
   });

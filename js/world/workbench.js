@@ -303,7 +303,7 @@ export function buildWorkbench({ scene, interaction, store, game, controls }) {
   };
 
   // 還原存檔外觀
-  if (store.isDone('M01')) api.unlockCase();
+  if (store.flag('caseOpen', false) || store.isDone('M02')) api.unlockCase();
   if (store.hasItem('wand-tip')) api.removeWandTip();
   if (store.hasItem('wand')) api.assembleWand();
   if (store.isDone('M04')) api.allNodesOn();

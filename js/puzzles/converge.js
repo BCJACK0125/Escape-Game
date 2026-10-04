@@ -120,7 +120,7 @@ export function registerConverge(ctx, reg) {
       stage.showOutlines(true);
       automaton.takeJournal();
       hud.flash('ok');
-      hud.setObjective('把椅、傘、鏡調成日誌寫的姿態');
+      hud.setObjective(store.pick('房間該是什麼樣子，日誌已經說了', '把椅、傘、鏡調成日誌寫的姿態'));
       setTimeout(() => panel.close(), 2000);
     }
   });
@@ -148,7 +148,7 @@ export function registerConverge(ctx, reg) {
       hud.flash('ok');
       setTimeout(async () => {
         await hud.sequence(SCRIPT.perspectiveHint, 3200);
-        hud.setObjective('站進聚光燈圓點，面向北牆');
+        hud.setObjective(store.pick('聚光燈在地上留下一個圓點', '站進聚光燈圓點，面向北牆'));
       }, 600);
     }
   });
@@ -190,7 +190,7 @@ export function registerConverge(ctx, reg) {
         hud.flash('ok');
         hud.hideMeter();
         hud.say(`散落的線段合成五個數字：${ANSWERS.perspectiveDigits.split('').join('-')}`, 5200);
-        hud.setObjective('依 2-5-1-4-3 站上五個腳印，每個停一下');
+        hud.setObjective(store.pick('五個數字是一組順序；地上浮出了五個腳印', '依 2-5-1-4-3 站上五個腳印，每個停一下'));
       }
     } else {
       holdAlign = Math.max(0, holdAlign - dt * 2);

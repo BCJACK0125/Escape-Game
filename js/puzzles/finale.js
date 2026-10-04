@@ -32,7 +32,7 @@ export function registerFinale(ctx, reg) {
         });
         const pad = keypad({
           length: 3,
-          hint: '詩句給的是排列順序。',
+          hint: store.pick('', '詩句給的是排列順序。'),
           onSubmit(value, actions) {
             if (value === ANSWERS.finaleCode) {
               api.ok('投影機與兩卷影片同時通電。');

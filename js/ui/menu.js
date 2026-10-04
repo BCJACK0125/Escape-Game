@@ -60,14 +60,22 @@ export function createMenu({ store, hud, hooks }) {
     });
   }
 
+  const MODE_NOTES = {
+    standard: '挑戰：目標只給方向，道具要自己拿出來試；排練備忘在你卡住一段時間後才逐級解鎖。',
+    friendly: '引導：目標直接告訴你下一步，道具自動派上用場，三級備忘隨時可以聽。',
+    rehearsal: '引導、不倒數：適合慢慢解謎或驗收內容。'
+  };
   function modeRow() {
     const labels = { standard: '標準 60 分', friendly: '新手 75 分', rehearsal: '排練模式 · 無時限' };
-    return el('div.mode-row', {}, Object.keys(TIME_MODES).map((key) => el('button.mode-btn', {
-      type: 'button',
-      class: `mode-btn${mode === key ? ' is-active' : ''}`,
-      text: labels[key],
-      onclick: () => { mode = key; audio.click(); showTitle(); }
-    })));
+    return el('div.mode-wrap', {}, [
+      el('div.mode-row', {}, Object.keys(TIME_MODES).map((key) => el('button.mode-btn', {
+        type: 'button',
+        class: `mode-btn${mode === key ? ' is-active' : ''}`,
+        text: labels[key],
+        onclick: () => { mode = key; audio.click(); showTitle(); }
+      }))),
+      el('p.mode-note', { text: MODE_NOTES[mode] || '' })
+    ]);
   }
 
   function showTitle() {
@@ -158,6 +166,7 @@ export function createMenu({ store, hud, hooks }) {
       onchange: (e) => store.saveSettings({ invertY: e.target.checked })
     });
     const touch = el('select', {
+      dataset: { setting: 'touch' },
       onchange: (e) => {
         store.saveSettings({ touchControls: e.target.value });
         hooks.setTouchControls?.(e.target.value);
@@ -167,7 +176,15 @@ export function createMenu({ store, hud, hooks }) {
       el('option', { value: 'on', text: '一直顯示', selected: store.settings.touchControls === 'on' }),
       el('option', { value: 'off', text: '關閉', selected: store.settings.touchControls === 'off' })
     ]);
+    const guide = el('select', {
+      dataset: { setting: 'guide' },
+      onchange: (e) => hooks.setGuide?.(e.target.value)
+    }, [
+      el('option', { value: 'challenge', text: '挑戰（提示要等、道具自己試）', selected: store.state.guide === 'challenge' }),
+      el('option', { value: 'guided', text: '引導（目標與提示直接）', selected: store.state.guide !== 'challenge' })
+    ]);
     return el('div.settings', {}, [
+      el('label.setting', {}, [el('span', { text: '引導程度' }), guide]),
       el('label.setting', {}, [el('span', { text: '畫面亮度' }), bright]),
       el('label.setting', {}, [el('span', { text: '音量' }), vol]),
       el('label.setting', {}, [el('span', { text: '視角靈敏度' }), sens]),

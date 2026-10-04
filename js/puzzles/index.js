@@ -30,6 +30,10 @@ export function createPuzzles(ctx) {
   registerConverge(ctx, reg);
   registerFinale(ctx, reg);
 
+  // 只有最外層（玩家親手觸發）的那一次要結算「手上的道具有沒有用上」；
+  // 機關內部互相呼叫（例如 L03 完成後自動接 L04）不算。
+  let depth = 0;
+
   return {
     has(id) { return handlers.has(id); },
 
@@ -39,16 +43,26 @@ export function createPuzzles(ctx) {
         console.warn(`[puzzles] 沒有註冊的節點：${id}`);
         return;
       }
-      const node = NODE_MAP.get(id);
-      if (node && !ctx.store.isOpen(id)) {
-        ctx.hud.toast(LOCKED_LINES[node.line] || '還沒有反應');
-        return;
-      }
+      const items = ctx.items;
+      const held = depth === 0 ? items?.held : null;
+      if (depth === 0) items?.beginTurn();
+      depth++;
       try {
-        handler(extra);
+        const node = NODE_MAP.get(id);
+        if (node && !ctx.store.isOpen(id)) {
+          ctx.hud.toast(LOCKED_LINES[node.line] || '還沒有反應');
+        } else {
+          handler(extra);
+        }
       } catch (err) {
         console.error(`[puzzle:${id}]`, err);
         ctx.hud.toast('這個機關卡住了，可以用選單重試');
+      } finally {
+        depth--;
+      }
+      if (held && items.held === held && !items.usedThisTurn) {
+        ctx.hud.toast(`${items.name(held)}在這裡派不上用場，先收起來了`);
+        items.clear();
       }
     },
 

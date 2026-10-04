@@ -13,6 +13,7 @@ import { createHUD } from './ui/hud.js';
 import { createMenu } from './ui/menu.js';
 import { createJournal } from './ui/journal.js';
 import { createTouchUI } from './ui/touch.js';
+import { createInventory } from './ui/inventory.js';
 import { panel } from './ui/panel.js';
 import { createCinema } from './cinema/cinema.js';
 import { buildRoom } from './world/room.js';
@@ -46,6 +47,10 @@ hud.setVisible(false);
 const controls = createControls({ camera: engine.camera, dom: canvas, engine, store });
 const interaction = createInteraction({ engine, camera: engine.camera, controls, hud, audio });
 const cinema = createCinema({ audio, controls });
+const items = createInventory({
+  store, hud, panel,
+  onToggleUV: () => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyU' }))
+});
 
 const game = { trigger: () => {} };
 const ctx = {
@@ -62,6 +67,7 @@ const ctx = {
   store,
   game,
   cinema,
+  items,
   tmpVec: new THREE.Vector3(),
   world: {},
   menu: null
@@ -91,6 +97,12 @@ const menu = createMenu({
     },
     continueGame() { startGame({ fresh: false }); },
     resume() { setPaused(false); },
+    setGuide(level) {
+      store.setGuide(level);
+      items.render();
+      if (store.isDone('G02') && !store.isDone('G03')) ctx.world.stage?.showOutlines(true);
+      hud.toast(level === 'challenge' ? '引導程度：挑戰' : '引導程度：引導（目標與提示更直接）');
+    },
     async watchPrelude(mode = 'standard') {
       await cinema.prelude({ minutes: TIME_MODES[mode] ?? 60 });
       menu.showTitle();
@@ -163,6 +175,10 @@ let playing = false;
 async function startGame({ fresh, mode = 'standard', prelude = fresh }) {
   if (fresh) store.newGame(mode);
   else if (!store.load()) store.newGame(mode);
+  // ?guide=challenge|guided：強制引導程度（測試與內容驗收用）
+  const forcedGuide = new URLSearchParams(location.search).get('guide');
+  if (forcedGuide === 'challenge' || forcedGuide === 'guided') store.state.guide = forcedGuide;
+  items.render();
 
   audio.init();
   engine.start();
@@ -313,9 +329,11 @@ engine.onUpdate((dt) => {
     hud.setTimer(store.state.elapsed, { limitless: true });
   }
   tensionAcc += dt;
-  if (tensionAcc > 1) { tensionAcc = 0; updateTension(); }
+  if (tensionAcc > 1) { tensionAcc = 0; updateTension(); store.markOpened(); }
 
-  if (!nudge.shown && !store.state.finished && store.state.elapsed - nudge.last > NUDGE_AFTER) {
+  // 卡關提醒：太久沒進展，而且確實有一級備忘可以聽了，才讓電話響
+  if (!nudge.shown && !store.state.finished && store.state.elapsed - nudge.last > NUDGE_AFTER
+    && store.activeNodes().some((n) => store.hintWait(n.id) === 0)) {
     nudge.shown = true;
     nudge.last = store.state.elapsed;
     hud.setNudge(true);

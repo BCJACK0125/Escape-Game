@@ -4,7 +4,7 @@
 
 import { emitter, debounce } from '../core/util.js';
 import { NODES, NODE_MAP } from './nodes.js';
-import { SAVE_KEY, SETTINGS_KEY, TIME_MODES } from '../config.js';
+import { SAVE_KEY, SETTINGS_KEY, TIME_MODES, GUIDE_DEFAULT, HINT_DELAYS } from '../config.js';
 
 const SAVE_VERSION = 1;
 
@@ -22,6 +22,9 @@ function freshState(mode = 'standard') {
     flags: {},     // 任意旗標：uvOn、lightsOn、mirrorAngles…
     hints: {},     // nodeId -> 已用提示級數
     memories: [],  // 已解鎖的林默手記（依取得順序）
+    guide: GUIDE_DEFAULT[mode] || 'challenge',
+    openedAt: {},  // nodeId -> 開始可以做的時間（elapsed 秒），提示解鎖用
+    spent: {},     // itemId -> 已用掉（仍算「拿過」，但不再出現在道具列）
     ending: null,
     finished: false
   };
@@ -78,6 +81,7 @@ export const store = {
       if (!data || data.version !== SAVE_VERSION) return false;
       this.state = Object.assign(freshState(data.mode), data);
       if (!Array.isArray(this.state.memories)) this.state.memories = [];
+      if (!this.state.guide) this.state.guide = GUIDE_DEFAULT[this.state.mode] || 'challenge';
       bus.emit('load', this.state);
       return true;
     } catch (err) {
@@ -155,6 +159,50 @@ export const store = {
   },
   hasItem(id) { return !!this.state.items[id]; },
 
+  /** 道具用掉了：仍算拿過（hasItem 為真），但不再出現在道具列 */
+  spendItem(id) {
+    if (!this.state.spent) this.state.spent = {};
+    if (this.state.spent[id]) return;
+    this.state.spent[id] = true;
+    bus.emit('item', id);
+    this.persist();
+  },
+  isSpent(id) { return !!this.state.spent?.[id]; },
+  /** 道具列要顯示的道具（拿到、還沒用掉） */
+  heldItems() {
+    return Object.keys(this.state.items).filter((id) => !this.isSpent(id));
+  },
+
+  // ── 引導程度 ───────────────────────────────────────────────
+  get challenge() { return this.state.guide === 'challenge'; },
+  setGuide(level) {
+    if (level !== 'challenge' && level !== 'guided') return;
+    if (this.state.guide === level) return;
+    this.state.guide = level;
+    bus.emit('guide', level);
+    this.persistNow();
+  },
+  /** 依引導程度挑一段文案 */
+  pick(challengeText, guidedText) { return this.challenge ? challengeText : guidedText; },
+
+  /** 記下每個節點「開始可以做」的時間（main.js 每秒呼叫） */
+  markOpened() {
+    if (!this.state.openedAt) this.state.openedAt = {};
+    for (const n of this.activeNodes()) {
+      if (this.state.openedAt[n.id] == null) this.state.openedAt[n.id] = this.state.elapsed;
+    }
+  },
+  /** 下一級提示還要等幾秒（0 = 現在就能聽；Infinity = 已全部聽完） */
+  hintWait(id) {
+    const node = NODE_MAP.get(id);
+    if (!node) return Infinity;
+    const used = this.hintLevel(id);
+    if (used >= node.hints.length) return Infinity;
+    const delays = HINT_DELAYS[this.state.guide] || HINT_DELAYS.guided;
+    const opened = this.state.openedAt?.[id] ?? this.state.elapsed;
+    return Math.max(0, opened + (delays[used] ?? 0) - this.state.elapsed);
+  },
+
   addClue(id) {
     if (this.state.clues.includes(id)) return false;
     this.state.clues.push(id);
@@ -204,6 +252,7 @@ export const store = {
   useHint(id) {
     const node = NODE_MAP.get(id);
     if (!node) return null;
+    if (this.hintWait(id) > 0) return null;   // 還沒到解鎖時間
     const level = Math.min((this.state.hints[id] || 0) + 1, node.hints.length);
     this.state.hints[id] = level;
     bus.emit('hint', { id, level, text: node.hints[level - 1] });

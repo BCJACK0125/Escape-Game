@@ -10,7 +10,9 @@ const puppeteer = await loadPuppeteer();
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
-export async function withPage(port, fn) {
+// query：網址參數。既有測試驗的是「引導」流程，所以預設 ?guide=guided；
+// 挑戰模式另由 challenge.mjs 驗證。
+export async function withPage(port, fn, { query = '?guide=guided' } = {}) {
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, `http://localhost:${port}`);
@@ -41,7 +43,7 @@ export async function withPage(port, fn) {
     r.continue();
   });
 
-  await page.goto(`http://localhost:${port}/index.html`, { waitUntil: 'networkidle2' });
+  await page.goto(`http://localhost:${port}/index.html${query}`, { waitUntil: 'networkidle2' });
   await page.waitForFunction('window.__act13 !== undefined', { timeout: 20000 });
 
   try {

@@ -57,7 +57,7 @@ page.on('request', (r) => {
   r.continue();
 });
 
-await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'networkidle2' });
+await page.goto(`http://localhost:${PORT}/index.html?guide=guided`, { waitUntil: 'networkidle2' });
 await page.waitForFunction('window.__act13 !== undefined', { timeout: 15000 });
 
 // ── 用內部 API 驅動整場遊戲 ─────────────────────────────────

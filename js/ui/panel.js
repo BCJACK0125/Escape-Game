@@ -7,6 +7,7 @@ import { audio } from '../core/audio.js';
 let root = null;
 let current = null;
 const openListeners = new Set();
+let itemSource = () => [];   // 由道具列提供：目前帶在身上的道具
 
 function ensureRoot() {
   if (root) return root;
@@ -30,11 +31,18 @@ export const panel = {
 
   onOpenChange(fn) { openListeners.add(fn); return () => openListeners.delete(fn); },
 
-  open({ id, title, kicker, subtitle, wide = false, tall = false, render, onClose, closeLabel = '退開' }) {
+  setItemSource(fn) { itemSource = fn; },
+
+  /**
+   * onItem(itemId, api)：面板接受道具時傳入。回傳 true 表示用上了；
+   * 回傳 false（或沒有用上）時面板會說「沒有作用」。
+   */
+  open({ id, title, kicker, subtitle, wide = false, tall = false, render, onClose, onItem = null, closeLabel = '退開' }) {
     ensureRoot();
     if (current) this.close({ silent: true });
 
     const body = el('div.panel-body');
+    const tray = el('div.panel-tray', { hidden: true });
     const status = el('p.panel-status', { role: 'status', 'aria-live': 'polite' });
     const closeBtn = el('button.panel-close', {
       type: 'button', 'aria-label': '關閉近景', text: closeLabel,
@@ -51,7 +59,7 @@ export const panel = {
         closeBtn
       ]),
       body,
-      el('footer.panel-foot', {}, [status])
+      el('footer.panel-foot', {}, [status, tray])
     ]);
 
     root.replaceChildren(card);
@@ -80,6 +88,25 @@ export const panel = {
 
     current = { id, api, onClose };
     try { render?.(body, api); } catch (err) { console.error(`[panel:${id}]`, err); }
+
+    // 道具列：可以拿身上的東西來試
+    if (onItem) {
+      const items = itemSource();
+      if (items.length) {
+        tray.hidden = false;
+        tray.replaceChildren(
+          el('span.panel-tray-label', { text: '拿出：' }),
+          ...items.map((it) => el('button.item-chip', {
+            type: 'button', text: it.name, title: it.desc, dataset: { item: it.id },
+            onclick: () => {
+              let used = false;
+              try { used = !!onItem(it.id, api); } catch (err) { console.error(`[panel:${id}:item]`, err); }
+              if (!used) api.fail(`${it.name}在這裡沒有作用。`);
+            }
+          }))
+        );
+      }
+    }
     openListeners.forEach((fn) => fn(true, id));
     audio.softClick();
     // 讓面板可用鍵盤操作

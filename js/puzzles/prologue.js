@@ -21,6 +21,7 @@ export function registerPrologue(ctx, reg) {
 
   // ── P01 邀請函 ────────────────────────────────────────────
   reg('P01', () => {
+    if (store.challenge) { openLetterPlain(); return; }
     let picked = [];
     panel.open({
       id: 'P01',
@@ -61,6 +62,7 @@ export function registerPrologue(ctx, reg) {
     });
 
     function finish(api) {
+      store.setFlag('letterRead', true);
       api.ok('六個字連成一句：拉下舞台燈繩。');
       store.addClue('invitation');
       if (store.complete('P01')) {
@@ -77,11 +79,34 @@ export function registerPrologue(ctx, reg) {
     }
   });
 
-  // 舞台燈繩：P01 的回饋，也是 P02 的開關
+  // 挑戰模式的信：就是一封信。首字的墨色只深一點點，要自己看出來，
+  // 讀懂之後去「做」那句話——拉下燈繩本身就是答案。
+  function openLetterPlain() {
+    store.setFlag('letterRead', true);
+    store.addClue('letter');
+    panel.open({
+      id: 'P01',
+      kicker: '序幕 · P01',
+      title: '邀請函',
+      subtitle: '林默的親筆信。紙很舊，墨色深淺不一。',
+      render(body) {
+        const lines = el('div.letter.letter--plain');
+        LETTER.forEach(([head, rest]) => {
+          lines.appendChild(el('p.letter-line', {}, [el('span.letter-ink', { text: head }), el('span', { text: rest })]));
+        });
+        body.append(lines, el('p.letter-sign', { text: '——林默' }));
+      },
+      onClose() {
+        if (!store.isDone('P01')) hud.setObjective('信裡藏著一句話');
+      }
+    });
+  }
+
+  // 舞台燈繩：P01 的答案（挑戰模式）／回饋（引導模式），也是 P02 的開關
   interaction.add(world.room.pullCord, {
     id: 'pull-cord',
-    label: '舞台燈繩',
-    hint: () => (store.isDone('P01') ? '拉下去' : '先讀邀請函'),
+    label: () => (store.challenge && !store.isDone('P01') ? '垂下來的繩子' : '舞台燈繩'),
+    hint: () => (store.isDone('P01') || store.challenge ? '拉下去' : '先讀邀請函'),
     distance: 2.6,
     // 繩子本身只有 9 mm 寬，靠隱形命中框才點得到。
     // 命中框只包住握把一帶（1.0–1.9 m）：原本 1.5 m 高的框會一路伸到燈罩旁，
@@ -93,16 +118,24 @@ export function registerPrologue(ctx, reg) {
     onClick: () => ctx.game.trigger('P01-cord')
   });
 
-  // 序幕導引：讀完信之後，讓黑暗中的握把自己發光
-  if (store.isDone('P01') && !world.room.lampOn) world.room.setCordHint(true);
-  store.on('node:done', ({ id }) => {
-    if (id === 'P01') world.room.setCordHint(true);
-  });
+  // 序幕導引：引導模式讀完信就讓握把發光；挑戰模式要聽到第 2 級備忘才亮
+  const cordGlow = () => !world.room.lampOn && !store.isDone('P02')
+    && (store.challenge ? store.hintLevel('P01') >= 2 : store.isDone('P01'));
+  if (cordGlow()) world.room.setCordHint(true);
+  store.on('node:done', () => { if (cordGlow()) world.room.setCordHint(true); });
+  store.on('hint', () => { if (cordGlow()) world.room.setCordHint(true); });
 
   reg('P01-cord', () => {
     if (!store.isDone('P01')) {
-      hud.toast('桌上那封信還沒讀完');
-      return;
+      if (!store.challenge) { hud.toast('桌上那封信還沒讀完'); return; }
+      if (!store.flag('letterRead', false)) {
+        audio.softClick();
+        hud.say('繩子很緊，上面好像卡著什麼。也許該先弄清楚它是做什麼用的。', 3800);
+        return;
+      }
+      // 讀過信、自己想通了：拉繩就是解答
+      store.addClue('invitation');
+      store.complete('P01');
     }
     const on = !world.room.lampOn;
     world.room.setLampOn(on);
@@ -111,7 +144,7 @@ export function registerPrologue(ctx, reg) {
     if (on) {
       hud.flash('ok');
       if (!store.isDone('P02')) {
-        hud.setObjective('轉動燈罩，讓影子指向 03:15');
+        hud.setObjective(store.pick('燈亮了，牆上的鐘面多了兩道影子', '轉動燈罩，讓影子指向 03:15'));
         hud.say('燈亮了。牆上的鐘面沒有指針，只有兩道影子。', 4200);
       }
     }
@@ -227,7 +260,7 @@ export function registerPrologue(ctx, reg) {
         store.addClue('drawer-code');
         store.complete('P02');
         hud.say('鐘面浮出四個數字：0 3 1 5。', 4200);
-        hud.setObjective('用 0315 打開桌下的工具抽屜');
+        hud.setObjective(store.pick('鐘面浮出了四個數字', '用 0315 打開桌下的工具抽屜'));
         exitAdjust();
       }
     } else {
@@ -249,7 +282,7 @@ export function registerPrologue(ctx, reg) {
       render(body, api) {
         const pad = keypad({
           length: 4,
-          hint: '鐘面上的時間就是密碼。',
+          hint: store.pick('', '鐘面上的時間就是密碼。'),
           onSubmit(value, actions) {
             if (value === ANSWERS.drawerCode) {
               api.ok('鎖扣彈開，抽屜內燈亮起。');
@@ -278,9 +311,12 @@ export function registerPrologue(ctx, reg) {
           title: '三種真相',
           sub: '光、聲、物——三面牆同時開放'
         });
-        hud.setObjective('三條支線都可以開始：海報（西北）、電話（東牆）、天平（西牆）');
+        hud.setObjective(store.pick('三面牆的工作燈都亮了', '三條支線都可以開始：海報（西北）、電話（東牆）、天平（西牆）'));
         const touchMode = document.documentElement.classList.contains('touch-mode');
-        hud.say(`三面牆的工作燈亮了。UV 燈在手上，${touchMode ? '點右下的「UV」' : '按 U'}開關。`, 5200);
+        hud.say(store.pick(
+          '三面牆的工作燈亮了。抽屜裡的東西都收進了右上角的道具列：點一下拿在手上，再去點想試的地方。',
+          `三面牆的工作燈亮了。UV 燈在手上，${touchMode ? '點右下的「UV」' : '按 U'}開關。`
+        ), 6200);
       }, 1500);
     }
   });

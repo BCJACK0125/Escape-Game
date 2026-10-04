@@ -67,6 +67,7 @@ export function createHUD({ onJournal, onHint, onMenu }) {
   document.body.appendChild(root);
 
   let subtitleToken = 0;
+  let heldLabel = null;    // 手上拿著的道具（道具列設定）
 
   const hud = {
     root,
@@ -79,7 +80,7 @@ export function createHUD({ onJournal, onHint, onMenu }) {
       }
       prompt.hidden = false;
       promptLabel.textContent = info.label;
-      promptHint.textContent = info.tooFar ? '走近一點' : (info.hint || '點擊或按 E');
+      promptHint.textContent = info.tooFar ? '走近一點' : (heldLabel ? `用${heldLabel}試試` : (info.hint || '點擊或按 E'));
       prompt.classList.toggle('is-far', !!info.tooFar);
       reticle.classList.toggle('is-active', !info.tooFar);
     },
@@ -241,6 +242,9 @@ export function createHUD({ onJournal, onHint, onMenu }) {
       const portrait = window.matchMedia('(orientation: portrait)').matches;
       orient.hidden = !(touchMode && portrait && !orientDismissed);
     },
+
+    /** 道具列通知：手上拿著什麼（null = 空手） */
+    setHeld(label) { heldLabel = label; },
 
     /** 字幕是否正在顯示（手記等過場會等字幕說完才出現） */
     get speaking() { return !subtitle.hidden; },

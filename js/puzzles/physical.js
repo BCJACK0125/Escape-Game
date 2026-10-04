@@ -43,7 +43,7 @@ export function registerPhysical(ctx, reg) {
 
   reg('M01', () => {
     if (store.isDone('M01')) { hud.toast('鎖扣已經開了'); return; }
-    store.addClue('balance-sheet');
+    if (!store.challenge) store.addClue('balance-sheet');
 
     panel.open({
       id: 'M01',
@@ -120,7 +120,9 @@ export function registerPhysical(ctx, reg) {
           ]),
           el('h3.panel-h3', { text: '道具（點一下切換：左 → 右 → 收起）' }),
           chipRow,
-          panel.note('兔 ＝ 帽 ＋ 硬幣；鴿 ＝ 硬幣 ＋ 硬幣。')
+          store.hasClue('balance-sheet')
+            ? panel.note('排練單：兔 ＝ 帽 ＋ 硬幣；鴿 ＝ 硬幣 ＋ 硬幣。')
+            : panel.note('牆上好像釘著一張排練單。')
         );
         render();
 
@@ -129,9 +131,10 @@ export function registerPhysical(ctx, reg) {
           A.latch();
           store.addItem('case-key');
           store.complete('M01');
-          bench.unlockCase();
+          // 引導模式直接幫你開鎖；挑戰模式要自己拿鑰匙去開
+          if (!store.challenge) { bench.unlockCase(); store.setFlag('caseOpen', true); }
           hud.flash('ok');
-          hud.setObjective('用磁鐵把玻璃櫃裡的杖尖帶出來');
+          hud.setObjective(store.pick('天平的鎖扣裡掉出一把小鑰匙', '用磁鐵把玻璃櫃裡的杖尖帶出來'));
           setTimeout(() => panel.close(), 1800);
         }
       },
@@ -142,10 +145,21 @@ export function registerPhysical(ctx, reg) {
   // ── M02 磁取杖尖 ──────────────────────────────────────────
   reg('M02', () => {
     if (!store.hasItem('case-key')) {
-      hud.say('櫃子鎖著。天平那邊的鎖扣還沒開。', 3400);
+      hud.say(store.pick('玻璃櫃鎖著，鎖孔很小。', '櫃子鎖著。天平那邊的鎖扣還沒開。'), 3400);
       return;
     }
     if (store.hasItem('wand-tip')) { hud.toast('杖尖已經拿出來了'); return; }
+    if (!store.flag('caseOpen', false)) {
+      if (store.challenge && ctx.items?.held !== 'case-key') {
+        hud.say('玻璃櫃鎖著，鎖孔很小。', 3000);
+        return;
+      }
+      if (ctx.items) ctx.items.spend('case-key'); else store.spendItem('case-key');
+      bench.unlockCase();
+      store.setFlag('caseOpen', true);
+      A.latch();
+      hud.toast('小鑰匙轉了半圈，櫃門的鎖彈開了');
+    }
 
     panel.open({
       id: 'M02',
@@ -269,7 +283,7 @@ export function registerPhysical(ctx, reg) {
           bench.removeWandTip();
           store.complete('M02');
           hud.flash('ok');
-          hud.setObjective('把三段魔杖組裝起來');
+          hud.setObjective(store.pick('魔杖的三段都到齊了', '把三段魔杖組裝起來'));
           setTimeout(() => panel.close(), 1600);
         }
       }
@@ -317,17 +331,18 @@ export function registerPhysical(ctx, reg) {
           }));
         }
         render();
-        body.append(row, panel.note('點一下轉 90°。三段的木紋接成同一條斜線就對了。'));
+        body.append(row, panel.note(store.pick('點一下轉 90°。', '點一下轉 90°。三段的木紋接成同一條斜線就對了。')));
 
         function done(api2) {
           api2.ok('三段咬合。邊緣的刻痕連成：北 → 東 → 南 → 西。');
           A.success();
           store.addItem('wand');
+          store.spendItem('wand-tip');
           store.addClue('wand-directions');
           store.complete('M03');
           bench.assembleWand();
           hud.flash('ok');
-          hud.setObjective('用杖尖依北、東、南、西碰觸感測牆的節點');
+          hud.setObjective(store.pick('魔杖邊緣的刻痕連成了一組方向', '用杖尖依北、東、南、西碰觸感測牆的節點'));
           setTimeout(() => panel.close(), 2200);
         }
       }
@@ -336,10 +351,12 @@ export function registerPhysical(ctx, reg) {
 
   // ── M04 感測牆 ────────────────────────────────────────────
   reg('M04', ({ dir, index } = {}) => {
-    if (!store.hasItem('wand')) {
+    const holding = !store.challenge || ctx.items?.held === 'wand';
+    if (!store.hasItem('wand') || !holding) {
       hud.say('節點沒有反應。它認的是杖尖，不是手指。', 3400);
       return;
     }
+    ctx.items?.use();
     if (store.isDone('M04')) return;
 
     const seq = store.flag('wandSeq', []) || [];
@@ -368,7 +385,7 @@ export function registerPhysical(ctx, reg) {
       A.success();
       A.latch();
       hud.flash('ok');
-      hud.setObjective('把魔杖放進自動機的側腹凹槽');
+      hud.setObjective(store.pick('自動機的側腹打開了', '把魔杖放進自動機的側腹凹槽'));
       hud.say('齒輪開始運轉，自動機的側腹打開了。', 4200);
     }
   });
@@ -380,7 +397,12 @@ export function registerPhysical(ctx, reg) {
       return;
     }
     if (store.hasSigil('star')) { hud.toast('核心已經被取走'); return; }
-    if (!store.hasItem('wand')) { hud.toast('需要完整的魔杖'); return; }
+    if (!store.hasItem('wand')) { hud.toast('凹槽的形狀細細長長的'); return; }
+    if (store.challenge && ctx.items?.held !== 'wand') {
+      hud.say('側腹裡是一道細長的凹槽，形狀很眼熟。', 3200);
+      return;
+    }
+    ctx.items?.spend('wand');
 
     world.automaton.setWandInSlot();
     world.automaton.nod();

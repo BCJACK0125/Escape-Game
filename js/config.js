@@ -52,6 +52,17 @@ export const ANSWERS = {
   finaleCode: '247'                // F01 星2 日4 月7
 };
 
+// 引導程度：標準場次預設「挑戰」，新手與排練預設「引導」，暫停選單可隨時切換。
+//   challenge：目標只給方向、道具要自己試、提示依卡關時間逐級解鎖
+//   guided   ：目標直接、道具自動套用、三級提示隨時可聽
+export const GUIDE_DEFAULT = { standard: 'challenge', friendly: 'guided', rehearsal: 'guided' };
+
+// 提示解鎖時間（秒）：從該節點「可以開始做」起算，第 1／2／3 級各自的門檻
+export const HINT_DELAYS = {
+  challenge: [120, 300, 480],
+  guided: [0, 0, 0]
+};
+
 export const SIGILS = {
   star: { id: 'star', name: '星星徽記', digit: 2, color: 0x9fb7d8, line: 'M' },
   sun: { id: 'sun', name: '太陽徽記', digit: 4, color: 0xe8c063, line: 'L' },

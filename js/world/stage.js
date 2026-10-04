@@ -134,6 +134,7 @@ export function buildStage({ scene, interaction, store, game, controls, room }) 
   // ── 地面輪廓（G02 後出現，指出道具該有的姿態）──────────────
   const outlines = new THREE.Group();
   outlines.visible = false;
+  const outlineTags = [];   // 「椅 · 左」等文字：挑戰模式不顯示，只留地上的輪廓
   for (const [key, def] of Object.entries(PROPS)) {
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(0.3, 0.34, 28),
@@ -152,6 +153,7 @@ export function buildStage({ scene, interaction, store, game, controls, room }) 
     tag.rotation.x = -Math.PI / 2;
     tag.position.set(def.x, 0.014, def.z + 0.46);
     outlines.add(tag);
+    outlineTags.push(tag);
   }
   group.add(outlines);
 
@@ -393,9 +395,12 @@ export function buildStage({ scene, interaction, store, game, controls, room }) 
   function mirrorTargetRot() { return state.mirror === 'tilt' ? deg(-30) : 0; }
 
   const api = {
-    group, plates, strokes, markerGroup, state, VIEWPOINT,
+    group, plates, strokes, markerGroup, state, VIEWPOINT, outlineTags,
 
-    showOutlines(on) { outlines.visible = on; },
+    showOutlines(on) {
+      outlines.visible = on;
+      outlineTags.forEach((t) => { t.visible = !store.challenge; });
+    },
 
     toggleProp(kind) {
       if (kind === 'chair') state.chair = state.chair === 'left' ? 'front' : 'left';

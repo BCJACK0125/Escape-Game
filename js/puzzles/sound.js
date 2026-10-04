@@ -32,6 +32,7 @@ export function registerSound(ctx, reg) {
   // ── S01 票根電話 ──────────────────────────────────────────
   reg('S01', () => {
     if (store.isDone('S01')) { playMessage(); return; }
+    if (store.challenge) { openTicketsPlain(); return; }
     panel.open({
       id: 'S01',
       kicker: '聲音檔案區 · S01',
@@ -84,6 +85,36 @@ export function registerSound(ctx, reg) {
     });
   });
 
+  // 挑戰模式：票根與轉盤一起擺在桌上。怎麼從票根變成號碼，要自己想。
+  function openTicketsPlain() {
+    panel.open({
+      id: 'S01',
+      kicker: '聲音檔案區 · S01',
+      title: '票根與轉盤電話',
+      subtitle: '桌上散著四張票根。電話還有電。',
+      wide: true,
+      render(body, api) {
+        const stubs = el('div.ticket-grid', {}, TICKETS.map((t) => el('div.ticket', {}, [
+          el('p.ticket-title', { text: t.title.replace('票根 · ', '') }),
+          el('p.ticket-meta', { text: t.meta })
+        ])));
+        const dial = rotaryDial({
+          length: 4,
+          onSubmit(value, actions) {
+            if (value === ANSWERS.phoneNumber) {
+              api.ok('電話接通了。');
+              setTimeout(() => { panel.close(); playMessage(); }, 900);
+            } else {
+              actions.clear();
+              api.fail('只有嘟嘟聲。掛掉重撥。');
+            }
+          }
+        });
+        body.append(el('div.two-col', {}, [stubs, dial.root]));
+      }
+    });
+  }
+
   async function playMessage() {
     store.addClue('phone-order');
     hud.setCinematic(true);
@@ -98,7 +129,7 @@ export function registerSound(ctx, reg) {
     store.addClue('voice-ages');
     if (store.complete('S01')) {
       hud.flash('ok');
-      hud.setObjective('把五張唱片依聲音年齡排序（聲紋唱機）');
+      hud.setObjective(store.pick('電話裡的人提到了唱片', '把五張唱片依聲音年齡排序（聲紋唱機）'));
     }
   }
 
@@ -114,7 +145,7 @@ export function registerSound(ctx, reg) {
       id: 'S02',
       kicker: '聲音檔案區 · S02',
       title: '聲紋唱片',
-      subtitle: '五張唱片、五個年紀，說的是同一句話。從最年輕排到最年長。',
+      subtitle: store.pick('五張唱片、五個空槽。', '五張唱片、五個年紀，說的是同一句話。從最年輕排到最年長。'),
       wide: true,
       render(body, api) {
         const shuffled = [RECORDS[0], RECORDS[2], RECORDS[3], RECORDS[1], RECORDS[4]];
@@ -125,7 +156,7 @@ export function registerSound(ctx, reg) {
             meta: r.meta,
             action: { label: '試聽', onClick: () => A.speak(r.voice, 1.9) }
           })),
-          slotLabels: ['最年輕', '第二', '第三', '第四', '最年長'],
+          slotLabels: store.challenge ? ['第一槽', '第二槽', '第三槽', '第四槽', '第五槽'] : ['最年輕', '第二', '第三', '第四', '最年長'],
           submitLabel: '放上唱盤',
           onSubmit(order, actions) {
             const correct = RECORDS.slice().sort((a, b) => a.voice - b.voice).map((r) => r.id);
@@ -136,7 +167,7 @@ export function registerSound(ctx, reg) {
               store.addClue('bell-order');
               store.complete('S02');
               hud.flash('ok');
-              hud.setObjective('依 4-2-5-1-3 拉下五條鐘繩');
+              hud.setObjective(store.pick('唱片給了一組順序', '依 4-2-5-1-3 拉下五條鐘繩'));
               setTimeout(() => {
                 panel.close();
                 hud.say('鐘繩就在唱機旁邊，天花板垂下來的那五條。', 4200);
@@ -154,6 +185,14 @@ export function registerSound(ctx, reg) {
 
   // ── S03 五條鐘繩 ──────────────────────────────────────────
   reg('S03-replay', async () => {
+    // 挑戰模式：指揮台要用指揮棒敲一下才會重播（抽屜裡那根短棒的用處）
+    if (store.challenge) {
+      if (ctx.items?.held !== 'baton') {
+        hud.say('一座小小的指揮台，台面有五道刻痕，像在等誰打拍子。', 3600);
+        return;
+      }
+      ctx.items.use();
+    }
     if (!store.isDone('S02')) { hud.toast('還沒有可播的順序'); return; }
     hud.toast('重播音序');
     sound.showSequenceLights(ANSWERS.bellSequence, 620);
@@ -202,7 +241,7 @@ export function registerSound(ctx, reg) {
         A.chord([0, 2, 4, 1], 0.05);
         hud.flash('ok');
         await hud.sequence(SCRIPT.bellChord, 3200);
-        hud.setObjective('讓房間聽見寂靜（耳朵雕塑）');
+        hud.setObjective(store.pick('「現在，聽見寂靜。」', '讓房間聽見寂靜（耳朵雕塑）'));
       }, 500);
     }
   });

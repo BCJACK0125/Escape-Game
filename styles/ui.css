@@ -491,7 +491,19 @@
 .filter-rows { display: grid; gap: 0.6rem; }
 .filter-row { display: grid; grid-template-columns: 6rem 1fr; align-items: center; gap: 1rem; }
 .filter-label { font-size: 0.86rem; color: var(--paper-dim); letter-spacing: 0.1em; }
-.filter-stack { position: relative; height: 3rem; }
+.filter-stack { position: relative; height: 3rem; width: 6.5rem; }
+/* 紅色的干擾：假數字蓋在真刻度上，再加兩層紅色斜紋；只有紅濾片濾得掉 */
+.filter-stack::after {
+  content: "";
+  position: absolute;
+  inset: -0.2rem -0.4rem;
+  z-index: 2;
+  background:
+    repeating-linear-gradient(112deg, rgba(224, 54, 74, 0.75) 0 2px, transparent 2px 5px),
+    repeating-linear-gradient(28deg, rgba(224, 54, 74, 0.45) 0 1px, transparent 1px 4px);
+  pointer-events: none;
+  transition: opacity 0.3s var(--ease);
+}
 .filter-fake, .filter-real {
   position: absolute;
   left: 0;
@@ -501,11 +513,12 @@
   letter-spacing: 0.16em;
   transition: opacity 0.3s var(--ease), filter 0.3s;
 }
-.filter-fake { color: #e0364a; opacity: 0.95; transform: translate(3px, 2px); }
-.filter-real { color: #4fc8e8; opacity: 0.9; filter: blur(0.6px); }
-.filter-rows.is-filtered { background: rgba(216, 53, 74, 0.1); }
-.filter-rows.is-filtered .filter-fake { opacity: 0.06; }
-.filter-rows.is-filtered .filter-real { color: #0f1418; filter: none; opacity: 1; text-shadow: 0 0 1px rgba(255,255,255,.5); }
+.filter-fake { z-index: 1; color: #e0364a; opacity: 1; transform: translate(2px, 1px); text-shadow: -3px 0 0 #e0364a, 3px 2px 0 rgba(224, 54, 74, 0.8); }
+.filter-real { color: #3d6f8a; opacity: 0.85; filter: blur(1px); }
+.filter-rows.is-filtered { background: rgba(216, 53, 74, 0.16); }
+.filter-rows.is-filtered .filter-fake,
+.filter-rows.is-filtered .filter-stack::after { opacity: 0; }
+.filter-rows.is-filtered .filter-real { color: #f3e6cc; filter: none; opacity: 1; }
 
 /* ── 天平（M01）─────────────────────────────────────────── */
 .balance-stage { display: grid; gap: 0.8rem; justify-items: center; }
@@ -994,4 +1007,86 @@ body.mode-adjust #scene { cursor: ew-resize; }
   .touch-actions { grid-template-columns: repeat(2, 4rem); gap: 0.45rem; }
   .touch-btn { min-height: 3rem; }
   .touch-btn--lead { min-height: 3.4rem; }
+}
+
+/* ── 道具列 ──────────────────────────────────────────────── */
+.hud-topright { justify-items: end; }
+.hud-items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  max-width: 22rem;
+  pointer-events: auto;
+}
+.item-chip {
+  min-height: 2.2rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--line-soft);
+  background: rgba(8, 6, 12, 0.62);
+  color: var(--paper-dim);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 0.2s, color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.item-chip:hover { color: var(--paper); border-color: var(--line); }
+.item-chip.is-held {
+  color: #1a1208;
+  background: var(--brass-lit);
+  border-color: var(--brass-lit);
+  box-shadow: 0 0 16px rgba(240, 212, 138, 0.35);
+}
+.item-chip--uv.is-held { color: #f1e8ff; background: rgba(122, 77, 255, 0.55); border-color: #a98bff; box-shadow: 0 0 16px rgba(122, 77, 255, 0.45); }
+body.is-holding .hud-reticle { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; background: transparent; border: 2px solid var(--brass-lit); opacity: 0.9; }
+
+/* 面板底部的「拿出：」 */
+.panel-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--line-soft);
+}
+.panel-tray-label { font-size: 0.8rem; color: var(--paper-dim); letter-spacing: 0.12em; margin-right: 0.2rem; }
+
+/* 挑戰模式的信：首字只是墨色深一點 */
+.letter--plain { color: #4a3b29; }
+.letter--plain .letter-line { margin-bottom: 0.25rem; }
+.letter-ink { color: #1b1007; }   /* 只深一點點，不加粗：要自己看出來 */
+
+/* 挑戰模式的票根 */
+.ticket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; align-content: start; }
+.ticket {
+  padding: 0.6rem 0.7rem;
+  background: linear-gradient(180deg, #e6dcc0, #d6c8a4);
+  color: #2b1f14;
+  border-left: 3px dashed rgba(43, 31, 20, 0.35);
+  box-shadow: inset 0 0 24px rgba(120, 90, 50, 0.25);
+}
+.ticket:nth-child(odd) { transform: rotate(-1.2deg); }
+.ticket:nth-child(even) { transform: rotate(1deg); }
+.ticket-title { margin: 0 0 0.3rem; font-family: var(--font-display); font-size: 0.88rem; }
+.ticket-meta { margin: 0; font-family: var(--font-data); font-size: 0.82rem; color: #5a4426; }
+
+/* 標題畫面的模式說明 */
+.mode-wrap { display: grid; gap: 0.5rem; }
+.mode-note { margin: 0; font-size: 0.82rem; line-height: 1.7; color: rgba(185, 172, 142, 0.85); max-width: 52ch; }
+
+/* 還沒解鎖的備忘 */
+.btn.is-waiting { opacity: 0.55; cursor: default; border-style: dashed; }
+.setting select { min-height: 2.2rem; background: #120d16; color: var(--paper); border: 1px solid var(--line-soft); padding: 0.2rem 0.4rem; font: inherit; }
+
+/* 觸控：道具列改成一排，貼在「選單」左邊 */
+:root.touch-mode .hud-topright { grid-auto-flow: column; align-items: start; gap: 0.4rem; }
+:root.touch-mode .hud-topright .hud-items { order: -1; max-width: 52vw; }
+:root.touch-mode .item-chip { min-height: 2.4rem; padding: 0.25rem 0.55rem; font-size: 0.78rem; }
+@media (orientation: portrait) and (max-width: 700px) {
+  :root.touch-mode .hud-topright { grid-auto-flow: row; justify-items: end; }
+  :root.touch-mode .hud-topright .hud-items { order: 0; max-width: 56vw; }
+  :root.touch-mode .hud-bottomleft { right: auto; max-width: 40vw; }
 }

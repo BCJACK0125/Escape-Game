@@ -42,11 +42,12 @@ export function registerLight(ctx, reg) {
   // ── L01 UV 海報 ───────────────────────────────────────────
   reg('L01', ({ poster } = {}) => {
     if (!store.hasItem('uv-lamp')) {
-      hud.say('白光下只是三張舊海報。抽屜裡的燈也許看得更多。', 3600);
+      hud.say(store.pick('白光下只是三張舊海報。', '白光下只是三張舊海報。抽屜裡的燈也許看得更多。'), 3600);
       return;
     }
     if (!store.flag('uvOn', false)) {
-      hud.toast('按 U 打開 UV 燈');
+      if (store.challenge) hud.say('白光下只是三張舊海報，紙面卻有些地方特別亮。', 3600);
+      else hud.toast('按 U 打開 UV 燈');
       return;
     }
     const seen = new Set(store.flag('postersSeen', []));
@@ -61,7 +62,7 @@ export function registerLight(ctx, reg) {
       gallery.showPortraitSpots(true);
       audio.success();
       hud.flash('ok');
-      hud.setObjective('依海報順序遮住三幅肖像的眼睛（北牆）');
+      hud.setObjective(store.pick('海報上的眼睛，好像在對應什麼', '依海報順序遮住三幅肖像的眼睛（北牆）'));
       hud.say('三張海報連起來：遮左眼、遮右眼、遮雙眼。', 4200);
     }
   });
@@ -89,7 +90,7 @@ export function registerLight(ctx, reg) {
       audio.success();
       hud.flash('ok');
       store.complete('L02');
-      hud.setObjective('看看單向鏡後面亮著什麼（北牆右側）');
+      hud.setObjective(store.pick('北牆有什麼亮了起來', '看看單向鏡後面亮著什麼（北牆右側）'));
       hud.say('鏡子後面亮起來了。', 3400);
     } else {
       hud.toast(`第 ${next} 幅完成`);
@@ -190,7 +191,7 @@ export function registerLight(ctx, reg) {
       api.ok('疊合後只剩三顆星，每顆旁邊都有一個刻度——但被紅藍雜訊蓋住了。');
       store.addClue('starmap');
       store.complete('L03');
-      hud.setObjective('用紅濾片讀出鏡架刻度');
+      hud.setObjective(store.pick('刻度被紅藍雜訊蓋住了', '用紅濾片讀出鏡架刻度'));
       setTimeout(() => { panel.close(); ctx.game.trigger('L04'); }, 1800);
     }
   });
@@ -199,12 +200,22 @@ export function registerLight(ctx, reg) {
   reg('L04', () => {
     if (!store.isDone('L03')) { ctx.game.trigger('L03'); return; }
     let filterOn = false;
+    let rowsEl = null;
+    const heldFilter = ctx.items?.held === 'red-filter';
+    if (heldFilter) ctx.items.use();
+    setTimeout(() => { if (heldFilter && panel.id === 'L04' && !store.isDone('L04')) applyFilter(null); }, 250);
 
-    panel.open({
+    const opened = panel.open({
       id: 'L04',
       kicker: '光影畫廊 · L04',
       title: '刻度上的紅藍雜訊',
-      subtitle: '三顆星旁的刻度互相干擾，需要濾掉一種顏色。',
+      subtitle: store.pick('三顆星旁的刻度，被一團紅藍雜訊蓋住了。', '三顆星旁的刻度互相干擾，需要濾掉一種顏色。'),
+      // 挑戰模式：沒有現成的按鈕，要自己從身上拿出對的東西
+      onItem(id, api) {
+        if (id !== 'red-filter') return false;
+        applyFilter(api);
+        return true;
+      },
       render(body, api) {
         const rows = el('div.filter-rows');
         const noise = [
@@ -222,6 +233,11 @@ export function registerLight(ctx, reg) {
           ]));
         });
 
+        rowsEl = rows;
+        if (store.challenge) {
+          body.append(rows);
+          return;
+        }
         const toggle = panel.button(store.hasItem('red-filter') ? '蓋上紅濾片' : '手上沒有紅濾片', () => {
           if (!store.hasItem('red-filter')) { api.fail('抽屜裡那片紅色的東西還沒拿。'); return; }
           filterOn = !filterOn;
@@ -236,12 +252,19 @@ export function registerLight(ctx, reg) {
       }
     });
 
+    function applyFilter(api) {
+      filterOn = true;
+      rowsEl?.classList.add('is-filtered');
+      audio.softClick();
+      if (!store.isDone('L04')) done(api || opened);
+    }
+
     function done(api) {
       api.ok('刻度清楚了：30、60、45。');
       store.addClue('mirror-angles');
       store.complete('L04');
       gallery.setEmitter(true);
-      hud.setObjective('把三面鏡架轉成 30° / 60° / 45°（北牆左側光學台）');
+      hud.setObjective(store.pick('光學台的發射器亮了', '把三面鏡架轉成 30° / 60° / 45°（北牆左側光學台）'));
       hud.say('光學台的發射器亮了。三面鏡架各有刻度。', 4200);
     }
   });

@@ -118,10 +118,36 @@ export function createJournal({ store, hud, onReplayMemory, onHintsOpened }) {
     return wrap;
   }
 
+  function waitLabel(level, sec) {
+    const m = Math.floor(sec / 60);
+    const s = Math.ceil(sec % 60);
+    return `第 ${level} 級備忘　約 ${m ? `${m} 分 ` : ''}${s} 秒後`;
+  }
+
+  // 提示倒數：每秒只更新等待中的按鈕文字；有一級解鎖時才整頁重畫
+  setInterval(() => {
+    if (panel.id !== 'journal' || tab !== 'hints') return;
+    const waiting = document.querySelectorAll('#panel-root .is-waiting[data-node]');
+    let unlocked = false;
+    waiting.forEach((b) => {
+      const sec = store.hintWait(b.dataset.node);
+      if (sec <= 0) unlocked = true;
+      else b.textContent = waitLabel(Number(b.dataset.level), sec);
+    });
+    if (unlocked) {
+      const body = document.querySelector('#panel-root .panel-body');
+      if (body) render(body);
+    }
+  }, 1000);
+
   function hintsView() {
     const active = store.activeNodes();
     const wrap = el('div.hint-list');
-    wrap.appendChild(el('p.panel-note', { text: '提示不限次數，但一次只給一級。先確認方向，再連結線索，最後才是動作。' }));
+    wrap.appendChild(el('p.panel-note', {
+      text: store.challenge
+        ? '林默的備忘不會一次給完：在一個機關前待得越久，他願意說的越多。先自己試試看。'
+        : '提示不限次數，但一次只給一級。先確認方向，再連結線索，最後才是動作。'
+    }));
     if (!active.length) {
       wrap.appendChild(el('p.panel-note', { text: '目前沒有進行中的節點。' }));
       return wrap;
@@ -138,12 +164,24 @@ export function createJournal({ store, hud, onReplayMemory, onHintsOpened }) {
       for (let i = 0; i < used; i++) {
         card.appendChild(el('p.hint-text', { text: `第 ${i + 1} 級　${node.hints[i]}` }));
       }
-      if (used < node.hints.length) {
+      const waitSec = store.hintWait(node.id);
+      if (used < node.hints.length && waitSec > 0) {
+        const m = Math.floor(waitSec / 60);
+        const s = Math.ceil(waitSec % 60);
+        card.appendChild(el('button.btn.btn--ghost', {
+          type: 'button',
+          disabled: true,
+          class: 'btn btn--ghost is-waiting',
+          dataset: { node: node.id, level: String(used + 1) },
+          text: waitLabel(used + 1, waitSec)
+        }));
+      } else if (used < node.hints.length) {
         card.appendChild(el('button.btn.btn--ghost', {
           type: 'button',
           text: used === 0 ? '聽第 1 級提示' : `聽第 ${used + 1} 級提示`,
           onclick: () => {
             const res = store.useHint(node.id);
+            if (!res) return;
             hud.setNudge?.(false);
             audio.dialClick();
             audio.speak(2, 1.1);

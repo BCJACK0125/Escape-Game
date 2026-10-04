@@ -40,7 +40,8 @@ export function buildGallery({ scene, interaction, store, game }) {
     interaction.add(sheet, {
       id: `poster-${i}`,
       label: `海報 · ${['一九三七', '一九四一', '一九四四'][i]}`,
-      hint: () => (store.hasItem('uv-lamp') ? (store.flag('uvOn') ? '看見了被遮掉的圖層' : '試試 UV 燈（U）') : '白光下看不出異常'),
+      hint: () => (store.flag('uvOn') ? '看見了被遮掉的圖層'
+        : (store.hasItem('uv-lamp') && !store.challenge ? '試試 UV 燈（U）' : '白光下看不出異常')),
       distance: 2.4,
       onClick: () => game.trigger('L01', { poster: i })
     });

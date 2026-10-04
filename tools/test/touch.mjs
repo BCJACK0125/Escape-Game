@@ -120,7 +120,7 @@ const ok = await withPage(8801, async (page, errors) => {
         Math.abs(ctx.engine.exposure - 1.6) < 0.001 && Math.abs(store.settings.brightness - 1.6) < 0.001,
         `曝光 ${ctx.engine.exposure}`);
     }
-    const select = document.querySelector('#screen .setting select');
+    const select = document.querySelector('#screen select[data-setting="touch"]');
     add('暫停選單有螢幕搖桿選項', !!select);
     if (select) {
       select.value = 'off';

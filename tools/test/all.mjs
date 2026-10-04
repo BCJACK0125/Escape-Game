@@ -14,6 +14,7 @@ const QUICK = [
   ['單一檔案原型', 'tools/test/prototype.mjs'],
   ['韌性測試', 'tools/test/robustness.mjs'],
   ['放映機與敘事系統', 'tools/test/cinema.mjs'],
+  ['挑戰模式', 'tools/test/challenge.mjs'],
   ['完整流程（腳本驅動）', 'tools/test/playthrough.mjs']
 ];
 
