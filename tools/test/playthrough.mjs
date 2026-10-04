@@ -3,22 +3,22 @@
 // 然後在真實 DOM 裡走完 26 個節點，確認狀態機、面板與 3D 互動註冊都沒有炸掉。
 //
 // 用法：node tools/test/playthrough.mjs
+import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, resolve, normalize } from 'node:path';
-import { createRequire } from 'node:module';
+import { loadPuppeteer, launchOptions, THREE_URL } from './browser.mjs';
 
-const require = createRequire('/home/claude/.npm-global/lib/node_modules/@mermaid-js/mermaid-cli/index.js');
-const puppeteer = require('puppeteer');
+const puppeteer = await loadPuppeteer();
 
-const ROOT = resolve(new URL('../..', import.meta.url).pathname);
+const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const PORT = 8731;
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://localhost:${PORT}`);
-    const rel = normalize(decodeURIComponent(url.pathname)).replace(/^\/+/, '') || 'index.html';
+    const rel = normalize(decodeURIComponent(url.pathname)).replace(/^[\\/]+/, '') || 'index.html';
     const file = join(ROOT, rel);
     const body = await readFile(file);
     res.writeHead(200, { 'Content-Type': MIME[extname(file)] || 'application/octet-stream' });
@@ -31,10 +31,7 @@ await new Promise((r) => server.listen(PORT, r));
 
 const stub = await readFile(join(ROOT, 'tools/test/three-stub.js'), 'utf8');
 
-const browser = await puppeteer.launch({
-  headless: 'shell',
-  args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
-});
+const browser = await puppeteer.launch(launchOptions({}));
 const page = await browser.newPage();
 const errors = [];
 const logs = [];
@@ -48,7 +45,7 @@ page.on('console', (m) => {
 await page.setRequestInterception(true);
 page.on('request', (r) => {
   const u = r.url();
-  if (/unpkg\.com|jsdelivr|esm\.sh/.test(u)) {
+  if (THREE_URL.test(u)) {
     r.respond({
       status: 200,
       contentType: 'text/javascript',
@@ -69,6 +66,9 @@ const result = await page.evaluate(async () => {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const log = [];
   const fail = [];
+
+  // 過場影片另有 cinema.mjs 驗證；這裡像急性子的玩家一樣全部跳過
+  setInterval(() => { if (ctx.cinema?.active) ctx.cinema.stop(); }, 50);
 
   // 開新局（不重載頁面）
   store.newGame('rehearsal');

@@ -1,7 +1,7 @@
 // 標題、暫停、設定、結局卡。
 // 幕布分開的那一下是全片唯一的自動動畫，其餘動態都由玩家操作觸發。
 
-import { el, formatClock } from '../core/util.js';
+import { el, formatClock, isTouchDevice } from '../core/util.js';
 import { TIME_MODES } from '../config.js';
 import { SCRIPT } from '../state/nodes.js';
 import { audio } from '../core/audio.js';
@@ -31,6 +31,35 @@ export function createMenu({ store, hud, hooks }) {
     setTimeout(() => { if (!visible) { root.hidden = true; root.replaceChildren(); } }, 320);
   }
 
+  // 全螢幕：手機上能把網址列收掉，並嘗試鎖定橫向
+  const canFullscreen = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+  function toggleFullscreen() {
+    const doc = document;
+    const isFs = doc.fullscreenElement || doc.webkitFullscreenElement;
+    if (isFs) {
+      (doc.exitFullscreen || doc.webkitExitFullscreen)?.call(doc);
+      return;
+    }
+    const elx = doc.documentElement;
+    const req = elx.requestFullscreen || elx.webkitRequestFullscreen;
+    Promise.resolve(req?.call(elx, { navigationUI: 'hide' }))
+      .then(() => screen.orientation?.lock?.('landscape'))
+      .catch(() => { /* 不支援或被拒絕：維持原樣 */ });
+  }
+  function fullscreenButton(cls = 'btn.btn--ghost') {
+    if (!canFullscreen) return null;
+    return el(`button.${cls}`, {
+      type: 'button',
+      text: (document.fullscreenElement || document.webkitFullscreenElement) ? '離開全螢幕' : '全螢幕',
+      onclick: (e) => {
+        toggleFullscreen();
+        setTimeout(() => {
+          e.target.textContent = (document.fullscreenElement || document.webkitFullscreenElement) ? '離開全螢幕' : '全螢幕';
+        }, 300);
+      }
+    });
+  }
+
   function modeRow() {
     const labels = { standard: '標準 60 分', friendly: '新手 75 分', rehearsal: '排練模式 · 無時限' };
     return el('div.mode-row', {}, Object.keys(TIME_MODES).map((key) => el('button.mode-btn', {
@@ -50,7 +79,7 @@ export function createMenu({ store, hud, hooks }) {
         el('span.title-line.title-line--big', { text: '第十三幕' })
       ]),
       el('p.title-blurb', {
-        text: '清場系統會在時間結束時抹除最後一場排練的全部紀錄。找回代表光、聲、物的三枚真相徽記，重演第十三幕，並決定是否公開他留下的證據。'
+        text: '一九四七年冬，魔術師林默在告別公演的第十二幕之後，從舞台上消失了。你們是劇院的檔案修復小組——在清場機關焚毀一切之前，找回光、聲、物三枚真相徽記，重演第十三幕，並決定是否公開他留下的證據。'
       }),
       modeRow(),
       el('div.title-bright', {}, [
@@ -69,7 +98,7 @@ export function createMenu({ store, hud, hooks }) {
         el('button.btn.btn--lead', {
           type: 'button',
           text: '進入房間',
-          onclick: () => { audio.init(); audio.curtain(); hide(); hooks.newGame(mode); }
+          onclick: () => { audio.init(); hide(); hooks.newGame(mode); }
         }),
         summary && el('button.btn.btn--ghost', {
           type: 'button',
@@ -77,10 +106,18 @@ export function createMenu({ store, hud, hooks }) {
           onclick: () => { audio.init(); hide(); hooks.continueGame(); }
         })
       ].filter(Boolean)),
+      el('div.title-extra', {}, [
+        el('button.link-btn', {
+          type: 'button',
+          text: '▸ 觀看前導片',
+          onclick: () => { audio.init(); hide(); hooks.watchPrelude?.(mode); }
+        }),
+        isTouchDevice() && fullscreenButton('link-btn')
+      ].filter(Boolean)),
       el('div.title-help', {}, [
         el('p', { text: 'WASD 走動　滑鼠拖曳環顧　點擊或 E 互動' }),
         el('p', { text: 'I 線索本　H 排練備忘　U UV 燈　L 鎖定滑鼠　Esc 選單' }),
-        el('p.title-note', { text: '含閃光與突發聲響；音量請先調到舒適的位置。' })
+        el('p.title-note', { text: '建議戴耳機：鐘聲與錄音都是線索。含閃光與突發聲響，音量請先調到舒適的位置。' })
       ])
     ]), { curtain: true });
   }
@@ -92,6 +129,7 @@ export function createMenu({ store, hud, hooks }) {
       settingsBlock(),
       el('div.menu-actions', {}, [
         el('button.btn.btn--lead', { type: 'button', text: '回到房間', onclick: () => { hide(); hooks.resume(); } }),
+        fullscreenButton(),
         el('button.btn.btn--ghost', { type: 'button', text: '重新開始這一場', onclick: () => { if (confirm('重新開始會清除這一場的進度。')) { hide(); hooks.newGame(store.state.mode); } } }),
         el('button.btn.btn--ghost', { type: 'button', text: '回到標題', onclick: () => showTitle() })
       ])

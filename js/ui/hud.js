@@ -41,17 +41,28 @@ export function createHUD({ onJournal, onHint, onMenu }) {
 
   const reticle = el('div.hud-reticle');
 
+  const hintBtn = el('button.hud-btn', { type: 'button', text: '排練備忘', title: '提示 (H)', dataset: { role: 'hint' }, onclick: () => onHint?.() });
   const buttons = el('div.hud-buttons', {}, [
-    el('button.hud-btn', { type: 'button', text: '線索本', title: '線索本 (I)', onclick: () => onJournal?.() }),
-    el('button.hud-btn', { type: 'button', text: '排練備忘', title: '提示 (H)', onclick: () => onHint?.() }),
-    el('button.hud-btn', { type: 'button', text: '選單', title: '選單 (Esc)', onclick: () => onMenu?.() })
+    el('button.hud-btn', { type: 'button', text: '線索本', title: '線索本 (I)', dataset: { role: 'journal' }, onclick: () => onJournal?.() }),
+    hintBtn,
+    el('button.hud-btn', { type: 'button', text: '選單', title: '選單 (Esc)', dataset: { role: 'menu' }, onclick: () => onMenu?.() })
   ]);
+
+  // 機關操作列：燈罩微調、靜默感測等「接管輸入」的模式，一定要有看得見的出口
+  const modebar = el('div.hud-modebar', { hidden: true });
+
+  // 直立手機的提醒：橫放體驗較好，但不強迫
+  const orient = el('div.hud-orient', { hidden: true }, [
+    el('span', { text: '橫放手機，房間看得更完整' }),
+    el('button', { type: 'button', text: '知道了', onclick: () => { orient.hidden = true; orientDismissed = true; } })
+  ]);
+  let orientDismissed = false;
 
   const root = el('div.hud', { id: 'hud' }, [
     el('div.hud-topleft', {}, [timer, sigilRow]),
     el('div.hud-topright', {}, [buttons]),
     el('div.hud-bottomleft', {}, [objective, progress]),
-    reticle, prompt, meter, subtitle, toasts, banner
+    reticle, prompt, meter, subtitle, toasts, banner, modebar, orient
   ]);
   document.body.appendChild(root);
 
@@ -136,9 +147,10 @@ export function createHUD({ onJournal, onHint, onMenu }) {
     },
 
     clearSubtitle() {
-      subtitleToken++;
+      const token = ++subtitleToken;
       subtitle.classList.remove('is-in');
-      setTimeout(() => { subtitle.hidden = true; }, 300);
+      // 只收掉「這一次」的字幕；300ms 內若又有新台詞，不能把它藏起來
+      setTimeout(() => { if (token === subtitleToken) subtitle.hidden = true; }, 300);
     },
 
     /** 幕次橫幅 */
@@ -170,7 +182,68 @@ export function createHUD({ onJournal, onHint, onMenu }) {
       void document.body.offsetWidth;
       document.body.classList.add(kind === 'ok' ? 'flash-ok' : 'flash-fail');
       setTimeout(() => document.body.classList.remove('flash-ok', 'flash-fail'), 620);
+      // 觸控裝置：成功輕震一下、失敗短震兩下
+      try { navigator.vibrate?.(kind === 'ok' ? 18 : [28, 50, 28]); } catch { /* 不支援就略過 */ }
     },
+
+    /**
+     * 顯示機關操作列。keys: [{ label, sub, lead, onPress, onHold, id }]
+     * onHold：按住時每 90ms 觸發一次（觸控微調用）
+     */
+    setModeBar(keys) {
+      if (!keys || !keys.length) {
+        modebar.hidden = true;
+        modebar.replaceChildren();
+        return;
+      }
+      modebar.replaceChildren(...keys.map((k) => {
+        const btn = el('button.mode-key', {
+          type: 'button',
+          class: `mode-key${k.lead ? ' mode-key--lead' : ''}`,
+          dataset: { id: k.id || '' }
+        }, [k.label, k.sub ? el('small', { text: k.sub }) : null]);
+        let timer = 0;
+        const stopHold = () => { clearInterval(timer); timer = 0; };
+        btn.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          if (k.onHold) {
+            e.preventDefault();
+            k.onHold();
+            stopHold();
+            timer = setInterval(k.onHold, 90);
+            try { btn.setPointerCapture(e.pointerId); } catch { /* 忽略 */ }
+          }
+        });
+        btn.addEventListener('pointerup', stopHold);
+        btn.addEventListener('pointercancel', stopHold);
+        btn.addEventListener('lostpointercapture', stopHold);
+        btn.addEventListener('click', (e) => { e.stopPropagation(); k.onPress?.(btn); });
+        return btn;
+      }));
+      modebar.hidden = false;
+    },
+
+    /** 卡關提醒：提示鈕發光，直到玩家打開提示或有新進展 */
+    setNudge(on) {
+      hintBtn.classList.toggle('is-nudge', !!on);
+      document.querySelectorAll('.touch-btn[data-role="hint"]').forEach((b) => b.classList.toggle('is-nudge', !!on));
+    },
+
+    /** 清場警告：計時器閃紅 */
+    warnTimer() {
+      timer.classList.remove('is-warn');
+      void timer.offsetWidth;
+      timer.classList.add('is-warn');
+    },
+
+    /** 觸控＋直立時顯示一次橫放提醒 */
+    updateOrientation(touchMode) {
+      const portrait = window.matchMedia('(orientation: portrait)').matches;
+      orient.hidden = !(touchMode && portrait && !orientDismissed);
+    },
+
+    /** 字幕是否正在顯示（手記等過場會等字幕說完才出現） */
+    get speaking() { return !subtitle.hidden; },
 
     setVisible(v) { root.hidden = !v; },
     setCinematic(v) { root.classList.toggle('is-cinematic', v); }

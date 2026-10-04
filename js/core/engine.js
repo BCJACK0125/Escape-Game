@@ -37,6 +37,7 @@ export function createEngine(canvas) {
   let fpsFrames = 0;
   let fps = 60;
   let degraded = false;
+  let suspended = false;    // 全螢幕過場播放時暫停 3D 繪製，把效能留給影片
 
   function resize() {
     const w = window.innerWidth;
@@ -69,6 +70,7 @@ export function createEngine(canvas) {
     if (!running) return;
     requestAnimationFrame(loop);
     const dt = clamp(clock.getDelta(), 0, 0.05);
+    if (suspended) return;
     frame++;
     watchPerformance(dt);
     for (const fn of updaters) {
@@ -92,6 +94,9 @@ export function createEngine(canvas) {
       loop();
     },
     stop() { running = false; },
+    /** 暫停／恢復繪製（迴圈仍在，恢復時不會有一大段 dt） */
+    setSuspended(v) { suspended = !!v; },
+    get suspended() { return suspended; },
     resize
   };
 }

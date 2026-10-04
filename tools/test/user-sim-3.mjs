@@ -164,6 +164,8 @@ const ok = await withPage(8863, async (page, errors) => {
     const bowed = await waitFor(() => store.isDone('F03'), 20000);
     step('兩條幕繩同時受力完成謝幕（F03）', bowed);
     await waitFor(() => store.state.ending, 12000);
+    // 謝幕後先播尾聲片（模擬玩家會按「跳到結算」），再出現結局卡
+    await waitFor(() => /揭幕/.test(document.getElementById('screen')?.textContent || ''), 30000);
     step('出現結局卡', /揭幕/.test(document.getElementById('screen')?.textContent || ''),
       `結局 ${store.state.ending}`);
 

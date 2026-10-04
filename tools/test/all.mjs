@@ -1,8 +1,9 @@
 // 一次跑完所有測試。用法：node tools/test/all.mjs
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
-const ROOT = resolve(new URL('../..', import.meta.url).pathname);
+const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const QUICK = [
   ['靜態檢查', 'tools/check-imports.mjs'],
   ['遮罩與點擊穿透', 'tools/test/overlay.mjs'],
@@ -12,6 +13,7 @@ const QUICK = [
   ['螢幕搖桿與亮度', 'tools/test/touch.mjs'],
   ['單一檔案原型', 'tools/test/prototype.mjs'],
   ['韌性測試', 'tools/test/robustness.mjs'],
+  ['放映機與敘事系統', 'tools/test/cinema.mjs'],
   ['完整流程（腳本驅動）', 'tools/test/playthrough.mjs']
 ];
 

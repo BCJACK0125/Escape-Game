@@ -271,7 +271,17 @@ export async function createSim() {
   }
 
   /** 走過去 → 轉視角 → 把游標移到物件上 → 點擊 */
+  /** 真人會等過場（字卡、手記）播完才繼續動作 */
+  async function settle(ms = 20000) {
+    const t0 = performance.now();
+    while (performance.now() - t0 < ms) {
+      if (!ctx.cinema?.active && !(window.__act13.pendingMemories > 0)) return;
+      await wait(150);
+    }
+  }
+
   async function goAndTap(id, taps = 1, accept = []) {
+    await settle();
     const t = targetOf(id);
     if (!t || !t.spot) { note(`${id}：找不到可站立的位置`); return { ok: false, hovered: null }; }
     const left = await walkPath(t.spot[0], t.spot[1], 0.4);
@@ -348,6 +358,11 @@ export async function createSim() {
 
   /** 開新局並跳過開場旁白 */
   async function start(mode = 'rehearsal') {
+    // 過場影片另有 cinema.mjs 驗證；模擬玩家一律按「跳過」
+    setInterval(() => {
+      const btn = document.querySelector('#film:not([hidden]) .film-skip');
+      if (btn && ctx.cinema?.active) btn.click();
+    }, 120);
     store.newGame(mode);
     document.querySelector('.title-actions .btn--lead')?.click();
     await wait(250);

@@ -64,10 +64,11 @@ export function createTouchUI({ controls, interaction, hud, journal, menu, store
   stick.addEventListener('pointercancel', onStickUp);
   stick.addEventListener('lostpointercapture', onStickUp);
 
-  function actionBtn(label, sub, onTap, cls = '') {
+  function actionBtn(label, sub, onTap, cls = '', role = '') {
     const btn = el(`button.touch-btn${cls ? '.' + cls : ''}`, {
       type: 'button',
-      'aria-label': label
+      'aria-label': label,
+      dataset: role ? { role } : null
     }, [
       el('span.touch-btn-label', { text: label }),
       sub && el('span.touch-btn-sub', { text: sub })
@@ -90,7 +91,7 @@ export function createTouchUI({ controls, interaction, hud, journal, menu, store
     actionBtn('互動', '準心處', () => interaction.activateCenter(), 'touch-btn--lead'),
     uvBtn,
     actionBtn('線索', '本', () => journal.toggle('clues')),
-    actionBtn('提示', '備忘', () => journal.open('hints'))
+    actionBtn('提示', '備忘', () => journal.open('hints'), '', 'hint')
   ]);
 
   const root = el('div.touch', { id: 'touch', hidden: true }, [stick, buttons]);
@@ -108,6 +109,7 @@ export function createTouchUI({ controls, interaction, hud, journal, menu, store
       document.documentElement.classList.toggle('touch-mode', shown);
       controls.setCenterRest(shown);   // 準心歸回中央，和「互動」鈕一致
       if (!shown) controls.clearMoveAxis();
+      hud.updateOrientation?.(shown);
     },
 
     /** 依設定與裝置決定要不要顯示 */
@@ -139,6 +141,7 @@ export function createTouchUI({ controls, interaction, hud, journal, menu, store
   if (store.hasItem('uv-lamp')) uvBtn.classList.add('is-ready');
 
   panel.onOpenChange((open) => api.setActive(!open));
+  window.addEventListener('resize', () => hud.updateOrientation?.(shown));
 
   return api;
 }

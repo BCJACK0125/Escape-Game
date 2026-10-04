@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>前導片錄製</title>
+<style>
+  :root { color-scheme: dark; --brass: #c8a44d; --paper: #ede3c8; --dim: #b9ac8e; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #0b0806;
+    color: var(--paper);
+    font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+  }
+  main { width: min(960px, 100%); display: grid; gap: 14px; }
+  h1 { margin: 0; font-family: "Songti TC", "Noto Serif TC", serif; font-weight: 500; letter-spacing: .14em; color: var(--brass); font-size: 1.4rem; }
+  p { margin: 0; color: var(--dim); line-height: 1.8; font-size: .9rem; }
+  canvas { width: 100%; aspect-ratio: 16 / 9; background: #000; border: 1px solid rgba(200,164,77,.3); display: block; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button, select {
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 1px solid var(--brass);
+    background: transparent;
+    color: var(--paper);
+    font: inherit;
+    cursor: pointer;
+  }
+  button.lead { background: var(--brass); color: #1a1208; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  input[type="range"] { flex: 1; min-width: 200px; accent-color: var(--brass); }
+  #time { font-variant-numeric: tabular-nums; min-width: 6ch; color: var(--brass); }
+  #status { min-height: 1.6em; }
+  a { color: var(--brass); }
+</style>
+</head>
+<body>
+<main>
+  <h1>前導片錄製</h1>
+  <p>前導片是一段程式：每一格畫面都由 <code>render(t)</code> 依時間算出來，配樂由 Web Audio 即時合成。
+     這一頁用固定解析度即時播放一遍，同時把畫面與聲音錄成影片檔，可以拿去社群、README 或預告使用。
+     錄製期間請保持這個分頁在前景。</p>
+  <canvas id="c" width="1920" height="1080"></canvas>
+  <div class="row">
+    <input id="scrub" type="range" min="0" max="51.5" step="0.05" value="10" aria-label="預覽時間">
+    <span id="time">10.0 s</span>
+  </div>
+  <div class="row">
+    <select id="res" aria-label="解析度">
+      <option value="1920x1080">1920 × 1080</option>
+      <option value="1280x720">1280 × 720</option>
+      <option value="1080x1920">1080 × 1920（直式短影音）</option>
+    </select>
+    <select id="mode" aria-label="時限">
+      <option value="60">標準 60 分</option>
+      <option value="75">新手 75 分</option>
+      <option value="0">排練模式</option>
+    </select>
+    <button id="play">播放預覽（含聲音）</button>
+    <button id="rec" class="lead">錄成影片</button>
+  </div>
+  <p id="status" role="status"></p>
+</main>
+
+<script type="module">
+  import { createPrelude, PRELUDE_DURATION } from '../js/cinema/prelude.js';
+  import { preludeScore } from '../js/core/score.js';
+  import { audio } from '../js/core/audio.js';
+
+  const canvas = document.getElementById('c');
+  const g = canvas.getContext('2d');
+  const scrub = document.getElementById('scrub');
+  const timeEl = document.getElementById('time');
+  const statusEl = document.getElementById('status');
+  const playBtn = document.getElementById('play');
+  const recBtn = document.getElementById('rec');
+  const resSel = document.getElementById('res');
+  const modeSel = document.getElementById('mode');
+
+  let film = createPrelude({ minutes: 60 });
+  let running = null;
+
+  function applyRes() {
+    const [w, h] = resSel.value.split('x').map(Number);
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.aspectRatio = `${w} / ${h}`;
+    canvas.style.maxHeight = '70vh';
+    canvas.style.width = h > w ? 'auto' : '100%';
+    draw(Number(scrub.value));
+  }
+  function draw(t) {
+    film.render(g, canvas.width, canvas.height, t);
+    timeEl.textContent = `${t.toFixed(1)} s`;
+  }
+
+  scrub.addEventListener('input', () => { if (!running) draw(Number(scrub.value)); });
+  resSel.addEventListener('change', applyRes);
+  modeSel.addEventListener('change', () => { film = createPrelude({ minutes: Number(modeSel.value) }); draw(Number(scrub.value)); });
+
+  /** 以 AudioContext 的時鐘驅動畫面，聲畫永遠對齊 */
+  function run({ onEnd } = {}) {
+    const ctx = audio.init();
+    const score = preludeScore();
+    const t0 = ctx.currentTime;
+    const loop = () => {
+      const t = ctx.currentTime - t0;
+      draw(Math.min(t, PRELUDE_DURATION));
+      scrub.value = String(t);
+      if (t >= PRELUDE_DURATION) { score.stop(0.4); running = null; onEnd?.(); return; }
+      running.raf = requestAnimationFrame(loop);
+    };
+    running = { score, raf: requestAnimationFrame(loop) };
+  }
+  function stopRun() {
+    if (!running) return;
+    cancelAnimationFrame(running.raf);
+    running.score.stop(0.2);
+    running = null;
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (running) { stopRun(); playBtn.textContent = '播放預覽（含聲音）'; return; }
+    playBtn.textContent = '停止';
+    run({ onEnd: () => { playBtn.textContent = '播放預覽（含聲音）'; } });
+  });
+
+  recBtn.addEventListener('click', async () => {
+    if (running) stopRun();
+    const ctx = audio.init();
+    await ctx.resume();
+    const types = [
+      'video/mp4;codecs=avc1.640028,mp4a.40.2',
+      'video/mp4',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm'
+    ];
+    const mime = types.find((t) => window.MediaRecorder?.isTypeSupported?.(t));
+    if (!mime) { statusEl.textContent = '這個瀏覽器不支援 MediaRecorder，請改用最新版 Chrome 或 Edge。'; return; }
+
+    // 畫面串流＋把總音量節點分一路到錄音
+    const video = canvas.captureStream(30);
+    const tap = ctx.createMediaStreamDestination();
+    audio.master.connect(tap);
+    const stream = new MediaStream([...video.getVideoTracks(), ...tap.stream.getAudioTracks()]);
+    // 位元率依解析度：720p 約 3.7 Mbps、1080p 約 8.3 Mbps，膠卷顆粒才不會糊掉
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: Math.round(canvas.width * canvas.height * 4) });
+    const chunks = [];
+    rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      audio.master.disconnect(tap);
+      const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+      const blob = new Blob(chunks, { type: mime.split(';')[0] });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `消失的第十三幕-前導片-${resSel.value}.${ext}`;
+      a.textContent = `下載 ${a.download}（${(blob.size / 1048576).toFixed(1)} MB）`;
+      statusEl.replaceChildren('錄好了：', a);
+      a.click();
+      recBtn.disabled = false;
+      playBtn.disabled = false;
+    };
+    recBtn.disabled = true;
+    playBtn.disabled = true;
+    statusEl.textContent = `錄製中（${mime}）……約 ${Math.ceil(PRELUDE_DURATION)} 秒`;
+    rec.start(1000);
+    run({ onEnd: () => setTimeout(() => rec.stop(), 600) });
+  });
+
+  applyRes();
+</script>
+</body>
+</html>

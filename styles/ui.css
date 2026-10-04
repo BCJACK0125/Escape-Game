@@ -833,3 +833,165 @@ body.mode-adjust #scene { cursor: ew-resize; }
   pointer-events: none;
   white-space: nowrap;
 }
+
+/* ── 機關操作列（燈罩、靜默感測）：桌機與觸控都有明確的按鈕出口 ── */
+.hud-modebar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(1.2rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+.mode-key {
+  min-width: 3.2rem;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--line);
+  background: rgba(8, 6, 12, 0.74);
+  color: var(--paper);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mode-key:hover { border-color: var(--brass); }
+.mode-key:active { background: rgba(200, 164, 77, 0.22); }
+.mode-key--lead { border-color: var(--brass); color: var(--brass-lit); }
+.mode-key.is-on { background: rgba(143, 196, 255, 0.18); border-color: var(--moon); }
+.mode-key small { display: block; font-size: 0.66rem; color: var(--paper-dim); letter-spacing: 0.08em; }
+:root.touch-mode .mode-key small { display: none; }
+
+/* 卡關時「電話響了」：提示鈕發光 */
+.hud-btn.is-nudge, .touch-btn.is-nudge {
+  border-color: var(--brass) !important;
+  color: var(--brass-lit) !important;
+  animation: nudge 1.6s ease-in-out infinite;
+}
+@keyframes nudge {
+  50% { box-shadow: 0 0 0 4px rgba(200, 164, 77, 0.18), 0 0 22px rgba(240, 212, 138, 0.35); }
+}
+
+/* 倒數警告時計時器閃兩下 */
+.hud-timer.is-warn { animation: timer-warn 1.4s var(--ease) 2; }
+@keyframes timer-warn {
+  30% { box-shadow: 0 0 0 1px rgba(200, 40, 50, 0.8), 0 0 30px rgba(200, 40, 50, 0.45); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-btn.is-nudge, .touch-btn.is-nudge, .hud-timer.is-warn { animation: none; }
+}
+
+/* 直立手機的提醒（橫放時自動消失） */
+.hud-orient {
+  position: absolute;
+  top: calc(6.4rem + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 90vw;
+  padding: 0.45rem 0.4rem 0.45rem 0.8rem;
+  border: 1px solid var(--line-soft);
+  background: rgba(8, 6, 12, 0.8);
+  color: var(--paper-dim);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  pointer-events: auto;
+}
+.hud-orient button { margin-left: 0.4rem; padding: 0.3rem 0.5rem; background: none; border: none; color: var(--brass); font: inherit; cursor: pointer; }
+@media (orientation: landscape) { .hud-orient { display: none; } }
+
+/* ── 面板永遠留在畫面內：內容過長時只捲內文 ──────────────────── */
+.panel-scrim { place-items: start center; }
+.panel {
+  margin: auto 0;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * clamp(0.8rem, 3vw, 2rem));
+  max-height: calc(100dvh - 2 * clamp(0.8rem, 3vw, 2rem));
+}
+.panel-body { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; min-height: 0; }
+.panel-head, .panel-foot { flex: none; }
+
+/* 觸控模式：右上只留「選單」，線索／提示交給右下的大按鈕 */
+:root.touch-mode .hud-btn[data-role="journal"],
+:root.touch-mode .hud-btn[data-role="hint"] { display: none; }
+:root.touch-mode .hud-topleft { top: calc(0.8rem + env(safe-area-inset-top, 0px)); left: calc(0.9rem + env(safe-area-inset-left, 0px)); }
+:root.touch-mode .hud-topright { top: calc(0.8rem + env(safe-area-inset-top, 0px)); right: calc(0.9rem + env(safe-area-inset-right, 0px)); }
+:root.touch-mode .hud-modebar { bottom: calc(10.6rem + env(safe-area-inset-bottom, 0px)); }
+.touch {
+  padding-left: calc(1rem + env(safe-area-inset-left, 0px));
+  padding-right: calc(1rem + env(safe-area-inset-right, 0px));
+}
+
+/* ── 矮螢幕（手機橫放）：壓縮版面，讓 3D 畫面留出空間 ─────────── */
+@media (max-height: 520px) {
+  .panel-scrim { padding: 0.5rem; }
+  .panel { max-height: calc(100dvh - 1rem); }
+  .panel-head { padding: 0.7rem 1rem 0.6rem; }
+  .panel-sub { display: none; }
+  .panel-title { font-size: var(--step-1); }
+  .panel-body { padding: 0.8rem 1rem; gap: 0.7rem; }
+  .panel-foot { padding: 0 1rem 0.6rem; }
+  .letter { padding: 0.7rem 1rem; line-height: 1.8; }
+  .letter-line { margin-bottom: 0.15rem; font-size: 1rem; }
+
+  .screen { place-items: start center; padding: 0.6rem; }
+  .title-card, .menu-card, .ending-card { margin: auto 0; padding: 1rem 1.3rem; }
+  .title-kicker { margin-bottom: 0.3rem; }
+  .title-main { margin-bottom: 0.5rem; }
+  .title-line { font-size: var(--step-2); }
+  .title-line--big { font-size: 2.4rem; }
+  .title-blurb { margin-bottom: 0.7rem; line-height: 1.65; font-size: 0.86rem; max-width: 62ch; }
+  .title-actions, .menu-actions { margin: 0.7rem 0; }
+  .title-bright { margin-top: 0.6rem; }
+  .title-help { display: none; }
+  .settings { gap: 0.45rem; margin: 0.6rem 0; }
+
+  :root.touch-mode .hud-timer { padding: 0.25rem 0.55rem; }
+  :root.touch-mode .hud-timer-value { font-size: 1.2rem; }
+  :root.touch-mode .hud-timer-note { display: none; }
+  :root.touch-mode .hud-sigil { width: 1.9rem; height: 1.9rem; }
+  :root.touch-mode .hud-topleft { gap: 0.35rem; }
+  :root.touch-mode .hud-bottomleft { bottom: auto; top: 5.6rem; max-width: 44vw; }
+  :root.touch-mode .hud-objective { font-size: 0.86rem; line-height: 1.5; }
+  :root.touch-mode .hud-progress { display: none; }
+  :root.touch-mode .hud-subtitle { bottom: 0.7rem; width: min(30rem, 48vw); font-size: 0.9rem; line-height: 1.6; padding: 0.45rem 0.7rem; }
+  :root.touch-mode .hud-meter { bottom: auto; top: 0.7rem; width: min(18rem, 40vw); }
+  :root.touch-mode .hud-modebar { bottom: auto; top: 3.6rem; }
+  :root.touch-mode .hud-toasts { top: 3.4rem; }
+  .stick { width: 7rem; height: 7rem; }
+  .stick-knob { width: 2.8rem; height: 2.8rem; }
+  .stick-hint { display: none; }
+  .touch-actions { grid-template-columns: repeat(2, 3.7rem); gap: 0.4rem; }
+  .touch-btn { min-height: 2.9rem; }
+  .touch-btn--lead { min-height: 3.2rem; }
+  .touch-btn-sub { display: none; }
+}
+
+/* ── 直立手機：上方放資訊、下方留給搖桿與按鈕，中間保持乾淨 ───── */
+@media (orientation: portrait) and (max-width: 700px) {
+  :root.touch-mode .hud-timer { padding: 0.3rem 0.6rem; }
+  :root.touch-mode .hud-timer-value { font-size: 1.3rem; }
+  :root.touch-mode .hud-timer-note { display: none; }
+  :root.touch-mode .hud-sigil { width: 2rem; height: 2rem; }
+  :root.touch-mode .hud-bottomleft { bottom: auto; top: calc(6.4rem + env(safe-area-inset-top, 0px)); left: 0.9rem; right: 0.9rem; max-width: none; }
+  :root.touch-mode .hud-objective { font-size: 0.92rem; line-height: 1.55; }
+  :root.touch-mode .hud-progress { display: none; }
+  :root.touch-mode .hud-toasts { top: calc(9.4rem + env(safe-area-inset-top, 0px)); width: 92vw; }
+  :root.touch-mode .hud-orient { top: auto; bottom: calc(24rem + env(safe-area-inset-bottom, 0px)); }
+  :root.touch-mode .hud-meter { bottom: auto; top: calc(11.6rem + env(safe-area-inset-top, 0px)); width: 80vw; }
+  :root.touch-mode .hud-subtitle { bottom: calc(16rem + env(safe-area-inset-bottom, 0px)); width: 92vw; font-size: 0.95rem; line-height: 1.7; }
+  :root.touch-mode .hud-modebar { bottom: calc(12.4rem + env(safe-area-inset-bottom, 0px)); }
+  :root.touch-mode .hud-prompt { top: calc(50% + 1.8rem); max-width: 80vw; }
+  .stick { width: 7.6rem; height: 7.6rem; }
+  .touch-actions { grid-template-columns: repeat(2, 4rem); gap: 0.45rem; }
+  .touch-btn { min-height: 3rem; }
+  .touch-btn--lead { min-height: 3.4rem; }
+}

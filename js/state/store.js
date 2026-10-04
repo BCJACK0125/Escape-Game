@@ -21,6 +21,7 @@ function freshState(mode = 'standard') {
     sigils: {},    // sun / moon / star -> true
     flags: {},     // 任意旗標：uvOn、lightsOn、mirrorAngles…
     hints: {},     // nodeId -> 已用提示級數
+    memories: [],  // 已解鎖的林默手記（依取得順序）
     ending: null,
     finished: false
   };
@@ -76,6 +77,7 @@ export const store = {
       const data = JSON.parse(localStorage.getItem(SAVE_KEY));
       if (!data || data.version !== SAVE_VERSION) return false;
       this.state = Object.assign(freshState(data.mode), data);
+      if (!Array.isArray(this.state.memories)) this.state.memories = [];
       bus.emit('load', this.state);
       return true;
     } catch (err) {
@@ -173,6 +175,17 @@ export const store = {
   },
   hasSigil(id) { return !!this.state.sigils[id]; },
   sigilCount() { return Object.keys(this.state.sigils).length; },
+
+  // ── 林默手記 ───────────────────────────────────────────────
+  addMemory(id) {
+    if (!Array.isArray(this.state.memories)) this.state.memories = [];
+    if (this.state.memories.includes(id)) return false;
+    this.state.memories.push(id);
+    bus.emit('memory', id);
+    this.persist();
+    return true;
+  },
+  hasMemory(id) { return Array.isArray(this.state.memories) && this.state.memories.includes(id); },
 
   // ── 旗標（謎題中間狀態）─────────────────────────────────────
   flag(key, fallback = null) {

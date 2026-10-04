@@ -1,20 +1,20 @@
 // 測試用共用外殼：起靜態伺服器、攔截 three.js CDN、開無頭瀏覽器。
+import { fileURLToPath } from 'node:url';
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
-import { createRequire } from 'node:module';
+import { loadPuppeteer, launchOptions, THREE_URL } from './browser.mjs';
 
-const require = createRequire('/home/claude/.npm-global/lib/node_modules/@mermaid-js/mermaid-cli/index.js');
-const puppeteer = require('puppeteer');
+const puppeteer = await loadPuppeteer();
 
-const ROOT = resolve(new URL('../..', import.meta.url).pathname);
+const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 export async function withPage(port, fn) {
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url, `http://localhost:${port}`);
-      const rel = normalize(decodeURIComponent(url.pathname)).replace(/^\/+/, '') || 'index.html';
+      const rel = normalize(decodeURIComponent(url.pathname)).replace(/^[\\/]+/, '') || 'index.html';
       const body = await readFile(join(ROOT, rel));
       res.writeHead(200, { 'Content-Type': MIME[extname(rel)] || 'application/octet-stream' });
       res.end(body);
@@ -25,11 +25,7 @@ export async function withPage(port, fn) {
   await new Promise((r) => server.listen(port, r));
 
   const stub = await readFile(join(ROOT, 'tools/test/three-stub.js'), 'utf8');
-  const browser = await puppeteer.launch({
-    headless: 'shell',
-    protocolTimeout: 900000,     // 玩家視角模擬會跑好幾分鐘
-    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
-  });
+  const browser = await puppeteer.launch(launchOptions({protocolTimeout: 900000}));
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -38,7 +34,7 @@ export async function withPage(port, fn) {
   });
   await page.setRequestInterception(true);
   page.on('request', (r) => {
-    if (/unpkg\.com|jsdelivr|esm\.sh/.test(r.url())) {
+    if (THREE_URL.test(r.url())) {
       r.respond({ status: 200, contentType: 'text/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body: stub });
       return;
     }

@@ -1,10 +1,24 @@
 # 消失的第十三幕 — 魔術師林默的最後房間
 
-一個無後端的靜態網頁 3D 密室逃脫。26 個互動節點、三線並行、雙結局。
-改編自同名實體密室執行計畫。
+一個無後端的靜態網頁 3D 密室逃脫。默片風前導片、26 個互動節點、三線並行、雙結局，
+桌機與手機都能玩。改編自同名實體密室執行計畫。
 
-> 你們是劇院檔案修復小組。清場系統會在六十分鐘後抹除最後一場排練的全部紀錄。
-> 找回代表光、聲、物的三枚真相徽記，重演第十三幕，並決定是否公開他留下的證據。
+> 一九四七年冬，魔術師林默在告別公演的第十二幕之後，從舞台上消失了。
+> 三天後，你們——長明大戲院的檔案修復小組——打開他封存的工作室，牆裡的清場機關開始倒數。
+> 在它焚毀最後一場排練的全部紀錄之前，找回光、聲、物三枚真相徽記，重演第十三幕，
+> 並決定是否公開他留下的證據。
+
+### 這一版的重點
+
+| | |
+|---|---|
+| **前導片** | 約 50 秒的默片風開場（片頭倒數 → 節目單 → 舞台上的消失 → 報紙頭版 → 工作室的門 → 清場機關）。畫面與配樂全部由程式即時生成，零下載，隨時可按「跳過」 |
+| **幕間字卡** | 第一幕「三種真相」、第二幕「重演」、第三幕「選擇」與結尾「尾聲」都改成膠卷字卡過場；播放時倒數暫停，不吃玩家時間 |
+| **林默手記** | 六頁回憶在關鍵時刻解鎖（抽屜、三枚徽記、自動機甦醒、終幕櫃），把三條支線串成同一個故事；線索本「手記」分頁可重看 |
+| **故事一致性** | 統一時代背景（1947）、五張唱片／五段聲音的數量、未使用道具（半張照片、指揮棒）都有回收；兩卷影片有各自的膠卷內容，尾聲移到謝幕之後 |
+| **清場倒數** | 剩 30／10／5／1 分鐘時有旁白、齒輪換檔聲與計時器警示；房間環境聲（底噪、牆裡的鐘擺）隨時間越來越緊 |
+| **卡關提醒** | 四分鐘沒有進展，轉盤電話會響、「排練備忘」鈕發光——像實體密室的 GM 主動關心，但不直接給答案 |
+| **手機體驗** | 面板永遠留在畫面內並可捲動；橫放時 HUD 自動壓縮；直立時另有版面；燈罩與靜默感測有畫面上的 ◀ ▶／麥克風／離開按鈕；支援全螢幕與震動回饋 |
 
 ---
 
@@ -35,8 +49,8 @@ git push -u origin main
 - `.nojekyll` 一定要留著。GitHub Pages 預設會用 Jekyll 處理，底線開頭的檔案會被忽略；
   這個檔案（空的）能關掉該行為，避免日後新增檔案時踩雷。
 - 網址結尾要有斜線或直接指向 `index.html`。所有路徑都是相對路徑，放在子目錄也沒問題。
-- three.js 從 CDN 載入（unpkg → jsDelivr → esm.sh 依序備援），第一次開啟需要網路。
-  想完全自行託管，見下方「離線／自行託管」。
+- three.js 優先載入專案內的 `vendor/three.module.js`，失敗才改用 CDN
+  （unpkg → jsDelivr → esm.sh 依序備援），所以部署後不依賴外部網路。
 
 ### 開不起來或畫面全黑？
 
@@ -71,12 +85,8 @@ npx serve .
 
 ### 離線／自行託管 three.js
 
-```bash
-mkdir vendor
-curl -o vendor/three.module.js https://unpkg.com/three@0.160.0/build/three.module.js
-```
-
-然後把 `js/core/three.js` 裡的 `USE_LOCAL_FIRST` 改成 `true`。
+專案已附上 `vendor/three.module.js`（0.160.0），且 `js/core/three.js` 的 `USE_LOCAL_FIRST` 為 `true`。
+想改回只用 CDN，把它設成 `false` 即可。
 
 ---
 
@@ -90,11 +100,12 @@ curl -o vendor/three.module.js https://unpkg.com/three@0.160.0/build/three.modul
 | **L** | 切換滑鼠鎖定（喜歡 FPS 手感的話） |
 | **U** | UV 燈開關（取得後） |
 | **I** | 線索本（自動記錄所有找到的線索與道具） |
+| **J** | 林默手記（已解鎖的回憶，可重看） |
 | **H** | 排練備忘（三級提示，不限次數） |
 | **M** | 靜默感測時改用麥克風判定（選用） |
 | **Esc** | 選單／關閉近景面板 |
 | **Shift** | 快走 |
-| **空白鍵** | 跳過開場旁白 |
+| **空白鍵** | 跳過前導片／讓字卡繼續 |
 
 腳步序列（G05）是**站上腳印停一下**才算一步，路過不會誤觸；
 踩到不對的腳印會先轉紅警告，你有時間退開。
@@ -107,6 +118,9 @@ curl -o vendor/three.module.js https://unpkg.com/three@0.160.0/build/three.modul
 - **在畫面上拖曳**：環顧四周
 - **右下角「互動」**：觸發準心（畫面中央）對到的機關；也可以直接點物件
 - 另有 **UV**、**線索**、**提示** 三個快捷鈕
+- **轉燈罩**（P02）時畫面下方會出現 ◀ ▶（按住微調）與「退開」；**靜默感測**（S04）有「麥克風」與「離開」
+- 標題畫面與暫停選單有 **全螢幕**（Android 會同時嘗試鎖定橫向）
+- 建議橫放；直立也能玩，HUD 會改成上資訊、下按鈕的版面
 
 在選單的「螢幕搖桿」可改成「一直顯示」或「關閉」；
 也可以用網址參數強制：`?touch=1` 開、`?touch=0` 關。
@@ -158,17 +172,39 @@ curl -o vendor/three.module.js https://unpkg.com/three@0.160.0/build/three.modul
 3D 物件與謎題規則刻意分開：`world/` 只管外觀，`puzzles/` 只管規則，
 中間只透過 `game.trigger('S03', { rope: 2 })` 溝通。要抽換機關時不必兩邊一起改。
 
-詳細架構請看 [`docs/架構與設計說明.md`](docs/架構與設計說明.md)。
+| 前導片的畫面與時間軸 | `js/cinema/prelude.js`（每個場景一個函式，開頭有時間表） |
+| 前導片配樂、幕間音型、環境聲 | `js/core/score.js`（時間軸與 `prelude.js` 對齊） |
+| 幕間字卡、手記、結局片的版面 | `js/cinema/cinema.js` |
+| 林默手記的內容與解鎖時機 | `js/state/nodes.js` 的 `MEMORIES` |
+| 清場倒數旁白、卡關提醒 | `js/state/nodes.js` 的 `SCRIPT.warnings`／`SCRIPT.nudge` |
+
+### 前導片是怎麼「拍」的
+
+Claude 這類語言模型沒有直接輸出影片的能力；做法是**寫出會產生影片的程式**。
+前導片就是一個純函式 `render(g, W, H, t)`：給它一個時間 `t`，它用 Canvas 2D 畫出那一格
+（舞台、報紙、齒輪、膠卷顆粒與刮痕都是程式畫的），配樂則由 Web Audio 依同一條時間軸合成。
+
+- **在遊戲裡**：即時播放，零下載、任何解析度都銳利、可跳過，也能隨字幕或時限（60／75／排練）改變內容。
+- **輸出成影片檔**：開 `tools/record-prelude.html`（同樣要用本機伺服器），選解析度後按「錄成影片」，
+  瀏覽器會用 MediaRecorder 把畫面與聲音錄成 MP4（Chrome／Edge）或 WebM，可直接拿去社群或預告。
+  也有 1080×1920 的直式選項。
 
 ---
 
 ## 開發用工具
 
 ```bash
-node tools/check-imports.mjs      # 檢查 31 個模組的語法、import 路徑、具名匯出
+node tools/check-imports.mjs      # 檢查所有模組的語法、import 路徑、具名匯出
 ```
 
-無頭瀏覽器測試（需要 puppeteer 與 Chrome，僅開發環境需要）：
+無頭瀏覽器測試（需要 puppeteer 與 Chrome，僅開發環境需要）。
+最簡單是在專案裡 `npm i -D puppeteer`；若只有 `puppeteer-core`，用環境變數指定：
+
+```bash
+# PUPPETEER_FROM：裝了 puppeteer(-core) 的資料夾；CHROME_PATH：瀏覽器執行檔
+PUPPETEER_FROM=/path/to/dir CHROME_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe" node tools/test/all.mjs quick
+```
+
 
 ```bash
 node tools/test/all.mjs           # 全部（含玩家模擬，約 12–15 分鐘）
@@ -183,6 +219,7 @@ node tools/test/usability.mjs     # 可用性稽核：每個互動點的螢幕�
 node tools/test/touch.mjs         # 螢幕搖桿、多點觸控、亮度設定
 node tools/test/prototype.mjs     # 單一檔案原型
 node tools/test/robustness.mjs    # 韌性檢查（錯誤輸入、存讀檔、倒數結束、雙結局）
+node tools/test/cinema.mjs        # 前導片／字卡／手記／結局片、倒數旁白、卡關提醒、機關操作列
 node tools/test/playthrough.mjs   # 腳本驅動走完 26 個節點
 node tools/test/user-sim-1.mjs    # 玩家模擬：序幕與光影線
 node tools/test/user-sim-2.mjs    # 玩家模擬：聲音線與物理線
@@ -194,7 +231,7 @@ node tools/test/user-sim-3.mjs    # 玩家模擬：合流與終幕
 完全不呼叫 `game.trigger` 或 `store.complete`，所以它驗的是「照著遊戲給的提示，
 玩家真的走得完嗎」。
 
-測試會攔截 three.js 的 CDN 請求並換成 `tools/test/three-stub.js`，
+測試會攔截 three.js 的請求（CDN 與 `vendor/`）並換成 `tools/test/three-stub.js`，
 所以能在沒有 GPU／沒有網路的環境驗證邏輯（但不驗證畫面）。
 `tools/` 與 `docs/` 不影響部署，可以留著也可以刪掉。
 
@@ -216,10 +253,11 @@ node tools/test/user-sim-3.mjs    # 玩家模擬：合流與終幕
 
 - three.js 0.160.0（僅核心，不使用任何 `examples/jsm` 附加元件）
 - 原生 ES Module，無打包工具、無相依安裝
-- 零二進位資源：貼圖用 Canvas 2D 生成，音效用 Web Audio 合成，字體用系統明體
+- 零二進位資源：貼圖與前導片用 Canvas 2D 生成，音效與配樂用 Web Audio 合成，字體用系統明體／楷體
 - 需要 WebGL2 與 ES2022（頂層 await）：Chrome 89+／Edge 89+／Firefox 89+／Safari 15+
 - 桌機與手機皆可：觸控裝置會自動顯示螢幕搖桿與動作鈕
-- 尊重 `prefers-reduced-motion`；提供音量與視角靈敏度設定
+- 尊重 `prefers-reduced-motion`（前導片的爆閃與片門晃動會減弱）；提供音量與視角靈敏度設定
+- 過場影片附螢幕閱讀器摘要；所有「接管輸入」的機關模式都有看得見的出口按鈕
 - 內含閃光與突發聲響提示（標題畫面已註明）
 
 ---

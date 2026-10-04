@@ -6,7 +6,7 @@ import { keypad } from '../ui/widgets.js';
 import { ANSWERS } from '../config.js';
 import { SCRIPT } from '../state/nodes.js';
 import { audio as A } from '../core/audio.js';
-import { el, wait } from '../core/util.js';
+import { el, wait, formatClock } from '../core/util.js';
 
 export function registerFinale(ctx, reg) {
   const { store, hud, world, controls, menu } = ctx;
@@ -64,10 +64,11 @@ export function registerFinale(ctx, reg) {
     stage.playFilm();
     A.startDrone({ id: 'projector', freq: 2200, gain: 0.02, type: 'bandpass', noise: true });
     const script = SCRIPT.finale[reel === 'reveal' ? 'reveal' : 'protect'];
-    await hud.banner(script.title, reel === 'reveal' ? '你們選擇公開證據' : '你們選擇保護他的行蹤');
-    for (const line of script.lines) {
-      hud.say(line, 4200);
-      await wait(4000);
+    hud.say(`影片「${reel === 'reveal' ? '公開' : '保護'}」裝上了投影機。北牆亮了起來。`, 3600);
+    await wait(3400);
+    for (const line of script.film) {
+      hud.say(line, 4400);
+      await wait(4200);
     }
     hud.clearSubtitle();
     A.stopDrone('projector');
@@ -110,9 +111,16 @@ export function registerFinale(ctx, reg) {
     await wait(600);
 
     const ending = store.flag('ending', 'reveal');
+    const script = SCRIPT.finale[ending] || SCRIPT.finale.reveal;
     store.setEnding(ending);
-    controls.frozen = false;
     hud.setCinematic(false);
+    await ctx.cinema.ending({
+      title: script.title,
+      sub: script.sub,
+      lines: script.lines,
+      stats: { time: formatClock(store.state.elapsed), hints: store.hintsUsed() }
+    });
+    controls.frozen = false;
     menu.showEnding(ending);
   });
 }

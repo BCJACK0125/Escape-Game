@@ -249,13 +249,27 @@ export function buildRoom({ scene, controls }) {
   }
   const dustGeo = new THREE.BufferGeometry();
   dustGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  // 柔邊圓點貼圖：沒有它，貼近鏡頭的塵埃會變成一塊塊白色方形
+  const mote = document.createElement('canvas');
+  mote.width = mote.height = 32;
+  const mg = mote.getContext('2d');
+  const grad = mg.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.35, 'rgba(255,255,255,.55)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  mg.fillStyle = grad;
+  mg.fillRect(0, 0, 32, 32);
+  const moteTex = new THREE.CanvasTexture(mote);
   const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
-    color: 0xd8c9a0, size: 0.014, transparent: true, opacity: 0.5, depthWrite: false
+    color: 0xd8c9a0, size: 0.02, map: moteTex, transparent: true, opacity: 0.45, depthWrite: false
   }));
   group.add(dust);
 
-  // ── 牆邊碰撞體（房間邊界由 controls 直接處理）──────────────
-  controls.addBoxCollider(0, -2.35, 0.9, 0.9); // 吊燈下方不擋人，只擋自動機周邊由 automaton 自行加
+  // ── 碰撞體 ────────────────────────────────────────────────
+  // 房間邊界由 controls 直接處理；自動機、桌子等各自加自己的碰撞體。
+  // 吊燈掛在 2.3 m 高，身體高度沒有東西，所以底下不放碰撞體——
+  // 以前這裡有一個 0.9 m 的隱形方塊，和自動機的碰撞體連成一道看不見的牆，
+  // 把房間北半部從中間切斷。
 
   // ── 對外狀態 ──────────────────────────────────────────────
   let lampOn = false;

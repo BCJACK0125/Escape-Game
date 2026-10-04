@@ -9,6 +9,8 @@ const ok = await withPage(8741, async (page, errors) => {
     const out = [];
     const add = (label, pass, note = '') => out.push([label, !!pass, note]);
 
+    // 過場影片（前導片、幕間字卡、手記、結局）另有 cinema.mjs 驗證；這裡像急性子的玩家一樣全部跳過
+    setInterval(() => { if (ctx.cinema?.active) ctx.cinema.stop(); }, 50);
     store.newGame('standard');
     document.querySelector('.title-actions .btn--lead')?.click();
     await wait(200);

@@ -54,7 +54,11 @@ export function registerConverge(ctx, reg) {
     controls.frozen = false;
     hud.setCinematic(false);
     hud.flash('ok');
-    await hud.banner('第二幕 · 重演', '把房間恢復成最後一場表演開始前');
+    await ctx.cinema.interlude({
+      kicker: '第 二 幕',
+      title: '重演',
+      sub: '把房間恢復成最後一場排練開始前的樣子'
+    });
     await hud.sequence(SCRIPT.journalReveal, 3200);
     hud.setObjective('比較三份排練日誌');
   });
@@ -248,7 +252,11 @@ export function registerConverge(ctx, reg) {
       A.success();
       hud.flash('ok');
       setTimeout(async () => {
-        await hud.banner('第三幕 · 選擇', '終幕櫃開了');
+        await ctx.cinema.interlude({
+          kicker: '第 三 幕',
+          title: '選擇',
+          sub: '終幕櫃開了。證據在裡面，林默也在等你們的答案'
+        });
         hud.setObjective('終幕櫃：先解開三位數，再選一卷影片');
       }, 700);
     }

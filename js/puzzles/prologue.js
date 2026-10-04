@@ -83,8 +83,13 @@ export function registerPrologue(ctx, reg) {
     label: '舞台燈繩',
     hint: () => (store.isDone('P01') ? '拉下去' : '先讀邀請函'),
     distance: 2.6,
-    hitBox: [0.4, 1.5, 0.4],       // 繩子本身只有 9 mm 寬，靠隱形命中框才點得到
-    hitOffset: [0, 1.6, 0],
+    // 繩子本身只有 9 mm 寬，靠隱形命中框才點得到。
+    // 命中框只包住握把一帶（1.0–1.9 m）：原本 1.5 m 高的框會一路伸到燈罩旁，
+    // 站在繩邊抬頭看燈罩時，射線會先打到繩子，燈罩就點不到了。
+    hitBox: [0.36, 0.9, 0.36],
+    hitOffset: [0, 1.45, 0],
+    // 燈亮著、影子時鐘還沒解開時，玩家要操作的是燈罩，繩子先讓開
+    enabled: () => !(world.room.lampOn && !store.isDone('P02')),
     onClick: () => ctx.game.trigger('P01-cord')
   });
 
@@ -125,6 +130,10 @@ export function registerPrologue(ctx, reg) {
     onClick: () => ctx.game.trigger('P02')
   });
 
+  // 拖曳以 clientX 的差值計算（觸控裝置不一定提供 movementX）
+  let dragX = null;
+  let dragId = null;
+
   function enterAdjust() {
     if (adjusting) return;
     adjusting = true;
@@ -132,25 +141,54 @@ export function registerPrologue(ctx, reg) {
     controls.enabled = false;
     interaction.setEnabled(false);
     document.body.classList.add('mode-adjust');
-    hud.say('左右拖曳滑鼠轉動燈罩（A／D 微調、按住 Shift 快轉），按 Esc 離開。', 5200);
+    const touchMode = document.documentElement.classList.contains('touch-mode');
+    hud.say(touchMode
+      ? '在畫面上左右拖曳轉動燈罩，或按住下方的 ◀ ▶ 微調。'
+      : '左右拖曳滑鼠轉動燈罩（A／D 微調、按住 Shift 快轉），按 Esc 離開。', 5200);
+    hud.setModeBar([
+      { id: 'ccw', label: '◀', sub: 'A', onHold: () => world.room.nudgeShade(-0.015) },
+      { id: 'cw', label: '▶', sub: 'D', onHold: () => world.room.nudgeShade(0.015) },
+      { id: 'exit', label: '退開', sub: 'Esc', lead: true, onPress: () => exitAdjust() }
+    ]);
+    canvas.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     window.addEventListener('keydown', onKey);
   }
 
   function exitAdjust() {
     if (!adjusting) return;
     adjusting = false;
+    dragX = null;
+    dragId = null;
     controls.enabled = true;
     interaction.setEnabled(true);
     document.body.classList.remove('mode-adjust');
     hud.hideMeter();
+    hud.setModeBar(null);
+    canvas.removeEventListener('pointerdown', onDown);
     window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onUp);
     window.removeEventListener('keydown', onKey);
   }
 
+  const canvas = engine.renderer.domElement;
+  function onDown(e) {
+    dragId = e.pointerId;
+    dragX = e.clientX;
+  }
   function onMove(e) {
-    if (!adjusting) return;
-    if (e.buttons & 1) world.room.nudgeShade(-e.movementX * 0.008 || 0);
+    if (!adjusting || dragX === null || e.pointerId !== dragId) return;
+    const dx = e.clientX - dragX;
+    dragX = e.clientX;
+    // 觸控的手指移動距離通常比滑鼠短，給一點加乘
+    const gain = e.pointerType === 'touch' ? 0.011 : 0.008;
+    world.room.nudgeShade(-dx * gain);
+  }
+  function onUp(e) {
+    if (e.pointerId === dragId) { dragX = null; dragId = null; }
   }
 
   function onKey(e) {
@@ -235,37 +273,37 @@ export function registerPrologue(ctx, reg) {
       setTimeout(async () => {
         panel.close();
         hud.flash('ok');
-        await hud.banner('第一幕 · 三種真相', '光、聲、物：三面牆同時開放');
+        await ctx.cinema.interlude({
+          kicker: '第 一 幕',
+          title: '三種真相',
+          sub: '光、聲、物——三面牆同時開放'
+        });
         hud.setObjective('三條支線都可以開始：海報（西北）、電話（東牆）、天平（西牆）');
-        hud.say('三面牆的工作燈亮了。UV 燈在手上，按 U 開關。', 5200);
+        const touchMode = document.documentElement.classList.contains('touch-mode');
+        hud.say(`三面牆的工作燈亮了。UV 燈在手上，${touchMode ? '點右下的「UV」' : '按 U'}開關。`, 5200);
       }, 1500);
     }
   });
 
-  // 開場旁白（可跳過：任何點擊或空白鍵）
+  // 回到房間後的旁白：前導片已經交代完背景，這裡不鎖住玩家，邊聽邊看四周。
+  // 玩家一動手（點到東西、開面板）旁白就讓位。
   reg('prologue-intro', async () => {
-    hud.setCinematic(true);
-    controls.frozen = true;
-    let skip = false;
-    const onSkip = (e) => {
-      if (e.type === 'pointerdown' || ['Space', 'Escape', 'Enter'].includes(e.code)) skip = true;
-    };
-    window.addEventListener('keydown', onSkip);
-    window.addEventListener('pointerdown', onSkip);
-    hud.toast('點擊或按空白鍵可跳過開場');
+    hud.setObjective('讀桌上的邀請函（桌燈下）');
+    let cut = false;
+    const stop = () => { cut = true; };
+    const offPanel = panel.onOpenChange((open) => { if (open) stop(); });
 
+    await wait(900);   // 等房間從黑畫面淡入
     for (const line of SCRIPT.intro) {
-      if (skip) break;
-      hud.say(line, 3600);
-      for (let t = 0; t < 34 && !skip; t++) await wait(100);
+      if (cut || store.isDone('P01')) break;
+      hud.say(line, 3400);
+      for (let t = 0; t < 31 && !cut; t++) await wait(100);
     }
-
-    window.removeEventListener('keydown', onSkip);
-    window.removeEventListener('pointerdown', onSkip);
-    hud.clearSubtitle();
-    controls.frozen = false;
-    hud.setCinematic(false);
-    hud.setObjective('讀桌上的邀請函');
-    hud.say('工作室只剩桌燈。桌上有一封邀請函。', 4200);
+    offPanel();
+    if (cut || store.isDone('P01')) return;
+    const touchMode = document.documentElement.classList.contains('touch-mode');
+    hud.say(touchMode
+      ? '拖曳畫面看四周，左下搖桿走路；對準邀請函後點「互動」。'
+      : '拖曳滑鼠看四周、WASD 走路；對準邀請函後點擊或按 E。', 5600);
   });
 }

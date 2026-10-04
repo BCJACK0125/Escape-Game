@@ -114,7 +114,7 @@ export function registerSound(ctx, reg) {
       id: 'S02',
       kicker: '聲音檔案區 · S02',
       title: '聲紋唱片',
-      subtitle: '五段錄音，五個年紀。從最年輕排到最年長。',
+      subtitle: '五張唱片、五個年紀，說的是同一句話。從最年輕排到最年長。',
       wide: true,
       render(body, api) {
         const shuffled = [RECORDS[0], RECORDS[2], RECORDS[3], RECORDS[1], RECORDS[4]];
@@ -222,8 +222,25 @@ export function registerSound(ctx, reg) {
     interaction.setEnabled(false);
     document.body.classList.add('mode-silence');
     A.startDrone({ id: 'silence', freq: 52, gain: 0.05 });
-    hud.say('不要移動、不要點擊。想改用麥克風判定就按 M；按 Esc 離開。', 5200);
+    const touchMode = document.documentElement.classList.contains('touch-mode');
+    hud.say(touchMode
+      ? '把手指離開螢幕，不要移動。想改用麥克風判定，點下方的「麥克風」。'
+      : '不要移動、不要點擊。想改用麥克風判定就按 M；按 Esc 離開。', 5200);
+    hud.setModeBar([
+      { id: 'mic', label: '麥克風', sub: 'M', onPress: (btn) => enableMic(btn) },
+      { id: 'exit', label: '離開', sub: 'Esc', lead: true, onPress: () => exitSilence() }
+    ]);
     window.addEventListener('keydown', onKey);
+  }
+
+  async function enableMic(btn) {
+    if (micMode) return;
+    const ok = await A.mic.start();
+    micMode = ok;
+    btn?.classList.toggle('is-on', ok);
+    // 按按鈕本身也算「動作」：重新給一點緩衝，不讓這一下把進度扣掉
+    grace = 0.8;
+    hud.toast(ok ? '麥克風已啟用：現在真的要安靜' : '沒有麥克風權限，改用「不動」判定');
   }
 
   function exitSilence(success = false) {
@@ -233,6 +250,7 @@ export function registerSound(ctx, reg) {
     document.body.classList.remove('mode-silence');
     A.stopDrone('silence');
     hud.hideMeter();
+    hud.setModeBar(null);
     window.removeEventListener('keydown', onKey);
     if (!success) sound.setSilenceProgress(0);
   }
@@ -241,9 +259,7 @@ export function registerSound(ctx, reg) {
     if (!listening) return;
     if (e.code === 'Escape') { exitSilence(); return; }
     if (e.code === 'KeyM' && !micMode) {
-      const ok = await A.mic.start();
-      micMode = ok;
-      hud.toast(ok ? '麥克風已啟用：現在真的要安靜' : '沒有麥克風權限，改用「不動」判定');
+      await enableMic(document.querySelector('.mode-key[data-id="mic"]'));
     }
   }
 

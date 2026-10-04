@@ -68,8 +68,32 @@ export const audio = {
 
   get time() { return this.ctx ? this.ctx.currentTime : 0; },
 
+  /** 獨立音軌：過場影片、環境音各走一條，跳過時整條淡出即可 */
+  createBus(gain = 1) {
+    const ctx = this.init();
+    if (!ctx) return null;
+    const bus = ctx.createGain();
+    bus.gain.value = gain;
+    bus.connect(this.master);
+    return bus;
+  },
+
+  fadeBus(bus, to = 0, seconds = 0.5, { disconnect = false } = {}) {
+    if (!bus || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    bus.gain.cancelScheduledValues(t);
+    bus.gain.setValueAtTime(bus.gain.value, t);
+    bus.gain.linearRampToValueAtTime(to, t + seconds);
+    if (disconnect) setTimeout(() => { try { bus.disconnect(); } catch { /* 已斷開 */ } }, seconds * 1000 + 80);
+  },
+
+  /** 觸控裝置的震動回饋（不支援就安靜略過） */
+  haptic(pattern = 16) {
+    try { navigator.vibrate?.(pattern); } catch { /* 忽略 */ }
+  },
+
   // ── 基本單元 ────────────────────────────────────────────────
-  tone({ freq = 440, dur = 0.3, type = 'sine', gain = 0.2, attack = 0.006, at = 0, detune = 0, filter = null }) {
+  tone({ freq = 440, dur = 0.3, type = 'sine', gain = 0.2, attack = 0.006, at = 0, detune = 0, filter = null, out = null }) {
     const ctx = this.init();
     if (!ctx) return;
     const t = ctx.currentTime + at;
@@ -90,12 +114,12 @@ export const audio = {
       node.connect(bq);
       node = bq;
     }
-    node.connect(g).connect(this.master);
+    node.connect(g).connect(out || this.master);
     osc.start(t);
     osc.stop(t + dur + 0.05);
   },
 
-  noiseBurst({ dur = 0.4, gain = 0.2, freq = 900, type = 'bandpass', q = 1, at = 0 }) {
+  noiseBurst({ dur = 0.4, gain = 0.2, freq = 900, type = 'bandpass', q = 1, at = 0, out = null }) {
     const ctx = this.init();
     if (!ctx) return;
     const t = ctx.currentTime + at;
@@ -110,7 +134,7 @@ export const audio = {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(gain, t + 0.02);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(bq).connect(g).connect(this.master);
+    src.connect(bq).connect(g).connect(out || this.master);
     src.start(t);
     src.stop(t + dur + 0.05);
   },
@@ -159,7 +183,7 @@ export const audio = {
   },
 
   /** 五條鐘繩之一：泛音堆疊 + 長衰減 */
-  bell(index, { at = 0, gain = 0.22 } = {}) {
+  bell(index, { at = 0, gain = 0.22, out = null } = {}) {
     const spec = BELL_SPECS[index % BELL_SPECS.length];
     spec.partials.forEach((mult, i) => {
       this.tone({
@@ -168,10 +192,11 @@ export const audio = {
         gain: gain / (1 + i * 1.6),
         type: i === 0 ? spec.type : 'sine',
         attack: 0.004,
-        at
+        at,
+        out
       });
     });
-    this.noiseBurst({ dur: 0.05, gain: 0.03, freq: spec.freq * 3, q: 2, at });
+    this.noiseBurst({ dur: 0.05, gain: 0.03, freq: spec.freq * 3, q: 2, at, out });
   },
 
   chord(indices = [0, 2, 4], spacing = 0.06) {

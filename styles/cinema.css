@@ -1,0 +1,126 @@
+/* 放映機：前導片、幕間字卡、林默手記、結局。
+   畫面本身全部畫在 canvas 上（見 js/cinema/），這裡只管容器、跳過鈕與進度條。 */
+
+.film {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  background: #0b0806;
+  opacity: 0;
+  transition: opacity 0.4s var(--ease);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.film.is-translucent { background: transparent; }
+.film.is-open { opacity: 1; }
+.film-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* 螢幕閱讀器用的摘要，視覺上隱藏 */
+.film-caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.film-skip {
+  position: absolute;
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.6rem));
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(214, 178, 94, 0.45);
+  background: rgba(11, 8, 6, 0.55);
+  color: var(--brass-lit);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.2s, background 0.2s;
+}
+.film-skip:hover, .film-skip:focus-visible { opacity: 1; background: rgba(214, 178, 94, 0.16); }
+.film-skip-key { font-size: 0.7rem; color: var(--paper-dim); letter-spacing: 0.1em; }
+:root.touch-mode .film-skip-key { display: none; }
+
+.film-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(237, 227, 200, 0.06); }
+.film-bar-fill { height: 100%; background: rgba(214, 178, 94, 0.55); transform-origin: left; transform: scaleX(0); }
+
+body.film-open .hud,
+body.film-open .touch { opacity: 0; }
+body.film-open .hud *,
+body.film-open .touch * { pointer-events: none !important; }
+
+/* 前導片結束、回到房間時從黑畫面淡入 */
+.fade-black {
+  position: fixed;
+  inset: 0;
+  z-index: 34;
+  background: #0b0806;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 2.4s var(--ease);
+}
+.fade-black.is-out { opacity: 0; }
+
+/* ── 林默手記（線索本分頁）───────────────────────────────── */
+.memo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.8rem; }
+.memo {
+  padding: 0.9rem 1rem;
+  background: linear-gradient(180deg, #e6d6ae, #d4c094);
+  color: #2a1a0c;
+  box-shadow: inset 0 0 40px rgba(110, 72, 28, 0.35);
+}
+.memo-title {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.2em;
+  font-size: 0.86rem;
+  color: #5a3a1e;
+}
+.memo-text {
+  margin: 0;
+  font-family: "Kaiti TC", "BiauKai", "DFKai-SB", "KaiTi", "STKaiti", var(--font-display);
+  font-size: 1.02rem;
+  line-height: 1.95;
+}
+.memo-replay {
+  margin-top: 0.5rem;
+  padding: 0.3rem 0;
+  background: none;
+  border: none;
+  color: #7a2430;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+.memo--locked {
+  background: rgba(237, 227, 200, 0.03);
+  color: var(--paper-dim);
+  box-shadow: none;
+  border: 1px dashed var(--line-soft);
+}
+.memo--locked .memo-title { color: var(--paper-dim); }
+.memo--locked .memo-text { font-size: 0.86rem; font-family: var(--font-ui); }
+
+/* 標題畫面的次要動作列 */
+.title-extra { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: -0.4rem; }
+.link-btn {
+  padding: 0.4rem 0.2rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--paper-dim);
+  font-family: var(--font-ui);
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  margin-right: 1rem;
+}
+.link-btn:hover { color: var(--brass-lit); border-color: var(--brass); }

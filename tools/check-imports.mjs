@@ -1,10 +1,11 @@
 // 開發用檢查：驗證每個 ES Module 的語法、import 路徑與具名匯出是否對得上。
 // 用法：node tools/check-imports.mjs
+import { fileURLToPath } from 'node:url';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const ROOT = resolve(new URL('..', import.meta.url).pathname);
+const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const JS_DIR = join(ROOT, 'js');
 
 function walk(dir) {

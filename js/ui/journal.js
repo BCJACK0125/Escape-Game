@@ -4,10 +4,10 @@
 
 import { el, formatClock } from '../core/util.js';
 import { panel } from '../ui/panel.js';
-import { CLUES, ITEMS, NODES, LINES, getNode } from '../state/nodes.js';
+import { CLUES, ITEMS, NODES, LINES, MEMORIES } from '../state/nodes.js';
 import { audio } from '../core/audio.js';
 
-export function createJournal({ store, hud }) {
+export function createJournal({ store, hud, onReplayMemory, onHintsOpened }) {
   let tab = 'clues';
 
   function render(body) {
@@ -18,6 +18,7 @@ export function createJournal({ store, hud }) {
     const defs = [
       ['clues', '線索'],
       ['items', '道具'],
+      ['memo', '手記'],
       ['progress', '進度'],
       ['hints', '排練備忘']
     ];
@@ -27,6 +28,7 @@ export function createJournal({ store, hud }) {
       text: label,
       onclick: () => {
         tab = id;
+        if (id === 'hints') { hud.setNudge?.(false); onHintsOpened?.(); }
         audio.softClick();
         const body = document.querySelector('#panel-root .panel-body');
         if (body) render(body);
@@ -38,6 +40,7 @@ export function createJournal({ store, hud }) {
     if (tab === 'clues') return cluesView();
     if (tab === 'items') return itemsView();
     if (tab === 'progress') return progressView();
+    if (tab === 'memo') return memoView();
     return hintsView();
   }
 
@@ -69,6 +72,26 @@ export function createJournal({ store, hud }) {
           el('p.clue-title', { text: it.name }),
           el('p.clue-text', { text: it.desc })
         ])
+      ]);
+    }));
+  }
+
+  function memoView() {
+    const got = new Set(store.state.memories || []);
+    return el('ul.memo-list', {}, MEMORIES.map((m, i) => {
+      if (!got.has(m.id)) {
+        return el('li.memo.memo--locked', {}, [
+          el('p.memo-title', { text: `第 ${i + 1} 頁` }),
+          el('p.memo-text', { text: '這一頁還黏在一起。繼續找下去，它會自己翻開。' })
+        ]);
+      }
+      return el('li.memo', {}, [
+        el('p.memo-title', { text: m.title }),
+        el('p.memo-text', { text: m.text }),
+        onReplayMemory && el('button.memo-replay', {
+          type: 'button', text: '▸ 再看一次',
+          onclick: () => { panel.close(); onReplayMemory(m); }
+        })
       ]);
     }));
   }
@@ -121,6 +144,7 @@ export function createJournal({ store, hud }) {
           text: used === 0 ? '聽第 1 級提示' : `聽第 ${used + 1} 級提示`,
           onclick: () => {
             const res = store.useHint(node.id);
+            hud.setNudge?.(false);
             audio.dialClick();
             audio.speak(2, 1.1);
             const body = document.querySelector('#panel-root .panel-body');
@@ -139,6 +163,7 @@ export function createJournal({ store, hud }) {
   const api = {
     open(which = 'clues') {
       tab = which;
+      if (which === 'hints') { hud.setNudge?.(false); onHintsOpened?.(); }
       panel.open({
         id: 'journal',
         kicker: '檔案修復小組',
